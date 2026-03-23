@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Conexión Paredes — Gestión de Red</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --primary:#0066FF;--primary-light:#E8F0FF;
+  --success:#00B37E;--success-light:#E6F9F4;
+  --danger:#E53935;--danger-light:#FDE8E8;
+  --warning:#F59E0B;--warning-light:#FEF3C7;
+  --purple:#7C3AED;--purple-light:#EDE9FE;
+  --teal:#0891B2;--teal-light:#E0F2FE;
+  --bg:#ffffff;--bg2:#f6f5f1;--bg3:#edece8;
+  --border:#e2e1db;--text:#1a1a18;--muted:#6b6a65;
+  --font:'Syne',sans-serif;--mono:'IBM Plex Mono',monospace;
+  --radius:10px;
+}
+body{font-family:var(--font);background:var(--bg2);color:var(--text);min-height:100vh}
+.topbar{background:var(--bg);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;justify-content:space-between;height:54px;position:sticky;top:0;z-index:200;gap:12px}
+.logo{font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px;flex-shrink:0}
+.logo-icon{width:28px;height:28px;background:var(--primary);border-radius:7px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.sync-pill{font-size:11px;padding:4px 11px;border-radius:99px;font-weight:700;display:flex;align-items:center;gap:5px}
+.sync-pill.ok{background:var(--success-light);color:#00785A}
+.sync-pill.err{background:var(--danger-light);color:#B71C1C}
+.sync-pill.load{background:var(--bg3);color:var(--muted)}
+.sync-dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+.ip-search-wrap{position:relative}
+.ip-search-input{padding:6px 12px 6px 30px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);font-family:var(--mono);font-size:12px;color:var(--text);width:180px;transition:all .2s}
+.ip-search-input:focus{outline:none;border-color:var(--primary);background:var(--bg);width:210px}
+.ip-search-icon{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:13px;pointer-events:none}
+.ip-search-result{position:absolute;top:calc(100% + 6px);right:0;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 14px;min-width:260px;box-shadow:0 6px 24px rgba(0,0,0,.12);z-index:300;font-size:13px;display:none}
+.ip-search-result.visible{display:block}
+.nav{background:var(--bg);border-bottom:1px solid var(--border);padding:0 20px;display:flex;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.nav-btn{background:none;border:none;padding:13px 15px;font-family:var(--font);font-size:13px;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;white-space:nowrap;font-weight:600}
+.nav-btn:hover{color:var(--text)}
+.nav-btn.active{color:var(--primary);border-bottom-color:var(--primary)}
+.alert-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--danger);margin-left:5px;vertical-align:middle}
+.main{max-width:1160px;margin:0 auto;padding:20px 14px}
+.panel{display:none}.panel.active{display:block}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
+@media(max-width:640px){.stats{grid-template-columns:repeat(2,1fr)}}
+.stat-card{background:var(--bg);border-radius:var(--radius);padding:14px 16px;border:1px solid var(--border)}
+.stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:5px;font-weight:700}
+.stat-val{font-size:24px;font-weight:700}
+.stat-val.green{color:var(--success)}.stat-val.red{color:var(--danger)}
+.stat-val.blue{color:var(--primary)}.stat-val.orange{color:var(--warning)}
+.stat-val.purple{color:var(--purple)}
+.stat-sub{font-size:11px;color:var(--muted);margin-top:3px}
+.card{background:var(--bg);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden;margin-bottom:14px}
+.sec-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px}
+.sec-title{font-size:15px;font-weight:700}
+.btn{background:var(--primary);color:#fff;border:none;padding:9px 17px;border-radius:8px;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:5px}
+.btn:hover{opacity:.88;transform:translateY(-1px)}.btn:active{transform:none}
+.btn.sm{padding:5px 11px;font-size:11px;border-radius:6px}
+.btn.xs{padding:3px 8px;font-size:10px;border-radius:5px}
+.btn.danger{background:var(--danger)}.btn.success{background:var(--success)}
+.btn.ghost{background:none;border:1px solid var(--border);color:var(--text)}
+.btn.ghost:hover{background:var(--bg2)}.btn.wa{background:#25D366}
+.tbl-wrap{overflow-x:auto}
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{text-align:left;padding:9px 13px;font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);border-bottom:1px solid var(--border);font-weight:700;background:var(--bg2);white-space:nowrap}
+.tbl td{padding:10px 13px;border-bottom:1px solid var(--border);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:#fafaf8}
+.badge{display:inline-block;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700}
+.badge.green{background:var(--success-light);color:#00785A}
+.badge.red{background:var(--danger-light);color:#B71C1C}
+.badge.orange{background:var(--warning-light);color:#92400E}
+.badge.blue{background:var(--primary-light);color:#0040CC}
+.badge.gray{background:var(--bg3);color:var(--muted)}
+.badge.purple{background:var(--purple-light);color:#5B21B6}
+.ip{font-family:var(--mono);font-size:11px;background:var(--bg2);padding:2px 7px;border-radius:5px;border:1px solid var(--border)}
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:600;padding:12px}
+.modal{background:var(--bg);border-radius:16px;padding:22px;width:min(580px,100%);max-height:92vh;overflow-y:auto}
+.modal h3{font-size:17px;font-weight:700;margin-bottom:16px}
+.modal-close{float:right;background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);line-height:1;margin-top:-2px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+@media(max-width:480px){.form-grid{grid-template-columns:1fr}}
+.form-group{display:flex;flex-direction:column;gap:4px}
+.form-group.full{grid-column:1/-1}
+label{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+input,select,textarea{background:var(--bg2);border:1px solid var(--border);border-radius:7px;padding:8px 11px;font-family:var(--font);font-size:13px;color:var(--text);width:100%;transition:border .15s}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary);background:var(--bg)}
+textarea{resize:vertical;min-height:70px;line-height:1.5}
+.form-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;padding-top:14px;border-top:1px solid var(--border)}
+.form-hint{font-size:11px;color:var(--muted);margin-top:2px}
+.meses-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:7px}
+@media(max-width:420px){.meses-grid{grid-template-columns:repeat(4,1fr)}}
+.mes-card{border-radius:9px;border:1px solid var(--border);padding:8px 5px;cursor:pointer;transition:all .15s;text-align:center;position:relative}
+.mes-card:hover{transform:scale(1.04)}
+.mes-card.pagado{background:var(--success);border-color:var(--success);color:#fff}
+.mes-card.mora{background:var(--danger);border-color:var(--danger);color:#fff}
+.mes-card.abono{background:var(--warning);border-color:var(--warning);color:#fff}
+.mes-card.favor{background:var(--purple);border-color:var(--purple);color:#fff}
+.mes-card.pendiente{background:var(--bg2);color:var(--muted)}
+.mes-nombre{font-size:11px;font-weight:700}
+.mes-estado-txt{font-size:9px;opacity:.85;margin-top:2px}
+.mes-saldo{font-size:9px;font-family:var(--mono);margin-top:1px;opacity:.9}
+.legend{display:flex;gap:12px;font-size:11px;color:var(--muted);margin-top:12px;flex-wrap:wrap}
+.leg-dot{width:10px;height:10px;border-radius:3px;display:inline-block;margin-right:3px;vertical-align:middle}
+.dias-badge{display:inline-block;padding:2px 7px;border-radius:6px;font-size:10px;font-weight:700;font-family:var(--mono)}
+.dias-badge.urgente{background:var(--danger-light);color:#B71C1C}
+.dias-badge.medio{background:var(--warning-light);color:#92400E}
+.dias-badge.leve{background:var(--primary-light);color:#0040CC}
+.saldo-box{background:var(--bg2);border-radius:8px;padding:12px;border:1px solid var(--border);margin-bottom:12px}
+.saldo-row{display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-bottom:1px solid var(--border)}
+.saldo-row:last-child{border-bottom:none;font-weight:700;padding-top:8px}
+.saldo-row span:first-child{color:var(--muted)}
+.wa-card{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:10px}
+.wa-top{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.wa-avatar{width:42px;height:42px;border-radius:50%;background:var(--primary-light);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;color:var(--primary);flex-shrink:0}
+.wa-nombre{font-weight:700;font-size:14px}
+.wa-detalle{font-size:12px;color:var(--muted);margin-top:2px}
+.wa-msg-box{background:var(--bg2);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--text);line-height:1.6;border:1px solid var(--border);margin-bottom:10px;white-space:pre-wrap}
+.alert{padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:14px;border:1px solid}
+.alert.info{background:var(--primary-light);color:#0040CC;border-color:#b3ccff}
+.alert.warning{background:var(--warning-light);color:#92400E;border-color:#fcd34d}
+.alert.success{background:var(--success-light);color:#00785A;border-color:#6ee7c7}
+.alerta-item{display:flex;align-items:center;gap:12px;padding:11px 14px;border-bottom:1px solid var(--border)}
+.alerta-item:last-child{border-bottom:none}
+.alerta-avatar{width:34px;height:34px;border-radius:50%;background:var(--warning-light);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:#92400E;flex-shrink:0}
+.alerta-nombre{font-weight:700;font-size:13px}
+.alerta-det{font-size:11px;color:var(--muted);margin-top:1px}
+.search-bar{padding:8px 13px;border-radius:8px;border:1px solid var(--border);background:var(--bg);font-family:var(--font);font-size:13px;color:var(--text);width:210px}
+.search-bar:focus{outline:none;border-color:var(--primary)}
+.empty{text-align:center;padding:36px 20px;color:var(--muted)}
+.empty-icon{font-size:32px;margin-bottom:8px}
+.empty-txt{font-size:13px}
+/* IP MAP */
+.ip-map-section{margin-bottom:20px}
+.ip-map-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px}
+.ip-range-title{font-size:13px;font-weight:700;font-family:var(--mono)}
+.ip-range-stats{font-size:12px;color:var(--muted);display:flex;gap:12px;flex-wrap:wrap}
+.ip-range-stat{display:flex;align-items:center;gap:5px}
+.ip-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+.ip-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(36px,1fr));gap:3px;padding:12px;background:var(--bg);border-radius:var(--radius);border:1px solid var(--border)}
+.ip-cell{height:26px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:9px;font-weight:600;cursor:default;transition:transform .1s;position:relative}
+.ip-cell:hover{transform:scale(1.18);z-index:10}
+.ip-cell.libre{background:var(--bg2);color:var(--muted);border:1px solid var(--border)}
+.ip-cell.cliente{background:var(--primary);color:#fff}
+.ip-cell.antena{background:var(--success);color:#fff}
+.ip-cell.gratis{background:var(--purple);color:#fff}
+.ip-tooltip{position:absolute;bottom:calc(100%+4px);left:50%;transform:translateX(-50%);background:#1a1a18;color:#fff;padding:4px 9px;border-radius:6px;font-size:10px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .15s;z-index:50;font-family:var(--font)}
+.ip-cell:hover .ip-tooltip{opacity:1}
+.ip-cell.highlighted{outline:3px solid var(--warning);outline-offset:1px}
+/* TABS */
+.tab-row{display:flex;gap:4px;margin-bottom:14px;background:var(--bg2);padding:4px;border-radius:9px;width:fit-content}
+.tab-btn{padding:6px 14px;border-radius:7px;border:none;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;color:var(--muted);background:none;transition:all .2s}
+.tab-btn.active{background:var(--bg);color:var(--primary);box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.historial-item{padding:10px 14px;border-bottom:1px solid var(--border);font-size:12px}
+.historial-item:last-child{border-bottom:none}
+.historial-fecha{font-family:var(--mono);font-size:10px;color:var(--muted)}
+.historial-desc{font-weight:600;margin:2px 0}
+.historial-nota{color:var(--muted);font-style:italic}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">
+    <div class="logo-icon">📡</div>
+    Conexión Paredes
+  </div>
+  <div class="topbar-right">
+    <div class="ip-search-wrap">
+      <span class="ip-search-icon">🔍</span>
+      <input class="ip-search-input" placeholder="Buscar IP..." oninput="buscarIP(this.value)" onblur="setTimeout(ocultarIPResult,200)" autocomplete="off">
+      <div class="ip-search-result" id="ip-search-result"></div>
+    </div>
+    <div id="sync-status" class="sync-pill load"><div class="sync-dot"></div> Conectando...</div>
+  </div>
+</div>
+
+<div class="nav">
+  <button class="nav-btn active" onclick="showPanel('dashboard',this)">Dashboard</button>
+  <button class="nav-btn" onclick="showPanel('alertas',this)" id="nav-alertas">Alertas</button>
+  <button class="nav-btn" onclick="showPanel('clientes',this)">Clientes</button>
+  <button class="nav-btn" onclick="showPanel('antenas',this)">Antenas</button>
+  <button class="nav-btn" onclick="showPanel('ips',this)">Mapa de IPs</button>
+  <button class="nav-btn" onclick="showPanel('pagos',this)">Pagos</button>
+  <button class="nav-btn" onclick="showPanel('finanzas',this)">Finanzas</button>
+  <button class="nav-btn" onclick="showPanel('whatsapp',this)">WhatsApp</button>
+</div>
+
+<div class="main">
+
+<!-- DASHBOARD -->
+<div class="panel active" id="p-dashboard">
+  <div class="stats">
+    <div class="stat-card"><div class="stat-label">Clientes totales</div><div class="stat-val blue" id="s-total">—</div><div class="stat-sub" id="s-gratis-sub"></div></div>
+    <div class="stat-card"><div class="stat-label">Al día</div><div class="stat-val green" id="s-aldia">—</div></div>
+    <div class="stat-card"><div class="stat-label">En mora</div><div class="stat-val red" id="s-mora">—</div></div>
+    <div class="stat-card"><div class="stat-label">Ingresos total</div><div class="stat-val orange" id="s-ing">—</div></div>
+  </div>
+  <div id="dash-alertas-wrap"></div>
+  <div class="sec-header"><span class="sec-title">Clientes en mora — por urgencia</span></div>
+  <div class="card"><div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>Cliente</th><th>Vencimiento</th><th>Días vencido</th><th>Meses mora</th><th>Deuda aprox.</th><th>WhatsApp</th></tr></thead>
+    <tbody id="body-mora-dash"></tbody>
+  </table></div></div>
+</div>
+
+<!-- ALERTAS -->
+<div class="panel" id="p-alertas">
+  <div class="sec-header">
+    <span class="sec-title">Alertas de vencimiento</span>
+    <span id="alertas-count" class="badge orange"></span>
+  </div>
+  <div class="tab-row">
+    <button class="tab-btn active" onclick="filtrarAlertas('semana',this)">Esta semana</button>
+    <button class="tab-btn" onclick="filtrarAlertas('hoy',this)">Vencen hoy</button>
+    <button class="tab-btn" onclick="filtrarAlertas('vencidos',this)">Ya vencidos</button>
+    <button class="tab-btn" onclick="filtrarAlertas('todos',this)">Todos</button>
+  </div>
+  <div class="card" id="alertas-lista"></div>
+</div>
+
+<!-- CLIENTES -->
+<div class="panel" id="p-clientes">
+  <div class="sec-header">
+    <span class="sec-title">Clientes</span>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <input class="search-bar" placeholder="Buscar nombre, IP, teléfono..." oninput="filtrarClientes(this.value)">
+      <button class="btn" onclick="abrirModalCliente()">+ Agregar cliente</button>
+    </div>
+  </div>
+  <div class="card"><div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>Nombre</th><th>Teléfono</th><th>IP</th><th>Antena</th><th>Plan</th><th>Valor/mes</th><th>Instalación</th><th>Día pago</th><th>Estado</th><th>Acciones</th></tr></thead>
+    <tbody id="body-clientes"></tbody>
+  </table></div></div>
+</div>
+
+<!-- ANTENAS -->
+<div class="panel" id="p-antenas">
+  <div class="sec-header">
+    <span class="sec-title">APs principales</span>
+    <button class="btn" onclick="abrirModalAntena()">+ Agregar AP principal</button>
+  </div>
+  <div class="card"><div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>Nombre</th><th>IP principal</th><th>Frecuencia</th><th>Enlace</th><th>Ubicación</th><th>Clientes</th><th>Estado</th><th>Acciones</th></tr></thead>
+    <tbody id="body-antenas"></tbody>
+  </table></div></div>
+
+  <div class="sec-header" style="margin-top:10px">
+    <span class="sec-title">Antenas receptoras</span>
+    <button class="btn ghost" onclick="abrirModalReceptora()">+ Agregar receptora</button>
+  </div>
+  <div class="alert info" style="font-size:12px">Antenas que reciben el enlace de una AP principal. Solo llevan IP, enlace y ubicación.</div>
+  <div class="card"><div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>Nombre</th><th>IP</th><th>Enlace asignado</th><th>AP principal</th><th>Ubicación</th><th>Estado</th><th>Acciones</th></tr></thead>
+    <tbody id="body-receptoras"></tbody>
+  </table></div></div>
+</div>
+
+<!-- MAPA IPs -->
+<div class="panel" id="p-ips">
+  <div class="sec-header">
+    <span class="sec-title">Mapa de IPs</span>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <span class="badge green" id="ip-libre-count">— libres</span>
+      <span class="badge red" id="ip-usada-count">— usadas</span>
+    </div>
+  </div>
+  <div class="alert info" style="font-size:12px">Pasa el cursor sobre una IP para ver a quién pertenece. <strong style="color:var(--success)">Verde</strong> = antena · <strong style="color:var(--primary)">Azul</strong> = cliente · <strong style="color:var(--purple)">Morado</strong> = gratis · <strong style="color:var(--muted)">Gris</strong> = libre</div>
+  <div class="ip-map-section">
+    <div class="ip-map-header">
+      <span class="ip-range-title">192.168.10.0 / 24</span>
+      <div class="ip-range-stats" id="stats-rango1"></div>
+    </div>
+    <div class="ip-grid" id="grid-rango1"></div>
+  </div>
+  <div class="ip-map-section">
+    <div class="ip-map-header">
+      <span class="ip-range-title">172.22.0.0 / 24</span>
+      <div class="ip-range-stats" id="stats-rango2"></div>
+    </div>
+    <div class="ip-grid" id="grid-rango2"></div>
+  </div>
+</div>
+
+<!-- PAGOS -->
+<div class="panel" id="p-pagos">
+  <div class="sec-header">
+    <span class="sec-title">Registro de pagos</span>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <select id="sel-año-pago" onchange="renderPagosDetalle()" style="width:100px">
+        <option value="ant">2025</option>
+        <option value="act" selected>2026</option>
+      </select>
+      <select id="sel-cli-pago" style="min-width:230px" onchange="renderPagosDetalle()"></select>
+    </div>
+  </div>
+  <div id="detalle-pagos"></div>
+</div>
+
+<!-- FINANZAS -->
+<div class="panel" id="p-finanzas">
+  <div class="sec-header">
+    <span class="sec-title">Ingresos y egresos</span>
+    <button class="btn" onclick="abrirModalMovimiento()">+ Registrar movimiento</button>
+  </div>
+  <div class="stats" style="grid-template-columns:repeat(3,1fr)">
+    <div class="stat-card"><div class="stat-label">Total ingresos</div><div class="stat-val green" id="fin-ing">$0</div></div>
+    <div class="stat-card"><div class="stat-label">Total egresos</div><div class="stat-val red" id="fin-eg">$0</div></div>
+    <div class="stat-card"><div class="stat-label">Balance</div><div class="stat-val blue" id="fin-bal">$0</div></div>
+  </div>
+  <div class="card"><div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>Fecha</th><th>Tipo</th><th>Descripción</th><th>Monto</th><th></th></tr></thead>
+    <tbody id="body-finanzas"></tbody>
+  </table></div></div>
+</div>
+
+<!-- WHATSAPP -->
+<div class="panel" id="p-whatsapp">
+  <div class="sec-header">
+    <span class="sec-title">Recordatorios — WhatsApp</span>
+    <button class="btn wa" onclick="enviarTodos()">Enviar a todos en mora ↗</button>
+  </div>
+  <div class="alert info">Un clic en "Enviar" abre WhatsApp con el mensaje personalizado listo para cada cliente.</div>
+  <div id="lista-wa"></div>
+</div>
+
+</div>
+
+<!-- MODAL CLIENTE -->
+<div class="modal-backdrop" id="modal-cliente" style="display:none" onclick="bgClose(event,'modal-cliente')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <button class="modal-close" onclick="cerrarModal('modal-cliente')">×</button>
+    <h3 id="modal-cli-title">Agregar cliente</h3>
+    <div class="form-grid">
+      <div class="form-group full"><label>Nombre completo</label><input id="f-nombre" placeholder="Ej: Carlos Muñoz"></div>
+      <div class="form-group"><label>Teléfono (con código país)</label><input id="f-tel" placeholder="573001234567" type="tel"><span class="form-hint">Sin + ni espacios</span></div>
+      <div class="form-group"><label>IP asignada</label><input id="f-ip" placeholder="192.168.10.x" style="font-family:var(--mono)" oninput="validarIPInput(this)"><span class="form-hint" id="f-ip-hint"></span></div>
+      <div class="form-group"><label>Antena</label><select id="f-antena"></select></div>
+      <div class="form-group"><label>Plan / velocidad</label><input id="f-plan" placeholder="Ej: 10 Mbps"></div>
+      <div class="form-group"><label>Valor mensual ($)</label><input id="f-valor" type="number" placeholder="50000"></div>
+      <div class="form-group"><label>Día de pago (1–31)</label><input id="f-diapago" type="number" min="1" max="31" placeholder="Ej: 5"><span class="form-hint">Día del mes en que vence</span></div>
+      <div class="form-group"><label>Fecha de instalación</label><input id="f-fechainstal" type="date"><span class="form-hint">Desde esta fecha se cuentan los pagos</span></div>
+      <div class="form-group"><label>Estado</label>
+        <select id="f-estado">
+          <option value="activo">Activo</option>
+          <option value="gratis">Gratis (punto de antena)</option>
+          <option value="suspendido">Suspendido</option>
+          <option value="inactivo">Inactivo</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn ghost" onclick="cerrarModal('modal-cliente')">Cancelar</button>
+      <button class="btn" onclick="guardarCliente()">Guardar cliente</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ANTENA -->
+<div class="modal-backdrop" id="modal-antena" style="display:none" onclick="bgClose(event,'modal-antena')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <button class="modal-close" onclick="cerrarModal('modal-antena')">×</button>
+    <h3 id="modal-ant-title">Agregar antena</h3>
+    <div class="form-grid">
+      <div class="form-group"><label>Nombre</label><input id="a-nombre" placeholder="Ej: Antena Norte"></div>
+      <div class="form-group"><label>IP principal</label><input id="a-ip" placeholder="192.168.10.1" style="font-family:var(--mono)"></div>
+      <div class="form-group full"><label>Ubicación</label><input id="a-ubicacion" placeholder="Ej: Torre barrio Las Palmas"></div>
+      <div class="form-group"><label>Frecuencia</label><input id="a-frecuencia" placeholder="Ej: 5.8 GHz"></div>
+      <div class="form-group"><label>Enlace asignado</label><input id="a-enlace" placeholder="Ej: 192.168.10.254" style="font-family:var(--mono)"></div>
+      <div class="form-group"><label>Usuario de acceso</label><input id="a-usuario" placeholder="Ej: admin"></div>
+      <div class="form-group"><label>Contraseña de acceso</label><input id="a-contrasena" type="password" placeholder="Contraseña del panel"></div>
+      <div class="form-group"><label>Contraseña de conexión</label><input id="a-contrasena-cx" type="password" placeholder="Contraseña WiFi / PPPoE"></div>
+      <div class="form-group full"><label>Estado</label>
+        <select id="a-estado"><option value="activa">Activa</option><option value="inactiva">Inactiva</option><option value="mantenimiento">Mantenimiento</option></select>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn ghost" onclick="cerrarModal('modal-antena')">Cancelar</button>
+      <button class="btn" onclick="guardarAntena()">Guardar antena</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PAGO MES -->
+<div class="modal-backdrop" id="modal-pago-mes" style="display:none" onclick="bgClose(event,'modal-pago-mes')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <button class="modal-close" onclick="cerrarModal('modal-pago-mes')">×</button>
+    <h3 id="pm-titulo">Registrar pago</h3>
+    <div class="saldo-box" id="pm-saldo-box"></div>
+    <div class="form-grid">
+      <div class="form-group full"><label>Estado del pago</label>
+        <select id="pm-estado" onchange="actualizarVistaAbono()">
+          <option value="pagado">✅ Pagado completo</option>
+          <option value="abono">💛 Abono parcial</option>
+          <option value="favor">💜 Saldo a favor</option>
+          <option value="mora">❌ En mora</option>
+          <option value="pendiente">⬜ Pendiente</option>
+        </select>
+      </div>
+      <div class="form-group full" id="pm-monto-wrap">
+        <label>Monto recibido ($)</label>
+        <input id="pm-monto" type="number" placeholder="0">
+        <span class="form-hint" id="pm-monto-hint"></span>
+      </div>
+      <div class="form-group full"><label>Fecha de pago</label><input id="pm-fecha" type="date"></div>
+      <div class="form-group full"><label>Nota / observación</label>
+        <textarea id="pm-nota" placeholder="Ej: Abonó $20.000, queda pendiente $30.000. Pagará el viernes..."></textarea>
+      </div>
+    </div>
+    <div id="pm-historial-wrap"></div>
+    <div class="form-actions">
+      <button class="btn ghost" onclick="cerrarModal('modal-pago-mes')">Cancelar</button>
+      <button class="btn success" onclick="guardarPagoMes()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL MOVIMIENTO -->
+<div class="modal-backdrop" id="modal-mov" style="display:none" onclick="bgClose(event,'modal-mov')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <button class="modal-close" onclick="cerrarModal('modal-mov')">×</button>
+    <h3>Registrar movimiento</h3>
+    <div class="form-grid">
+      <div class="form-group"><label>Tipo</label>
+        <select id="m-tipo"><option value="ingreso">Ingreso</option><option value="egreso">Egreso</option></select>
+      </div>
+      <div class="form-group"><label>Fecha</label><input id="m-fecha" type="date"></div>
+      <div class="form-group full"><label>Descripción</label><input id="m-desc" placeholder="Ej: Pago plan mensual junio"></div>
+      <div class="form-group full"><label>Monto ($)</label><input id="m-monto" type="number" placeholder="50000"></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn ghost" onclick="cerrarModal('modal-mov')">Cancelar</button>
+      <button class="btn" onclick="guardarMovimiento()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DETALLE ANTENA -->
+<div class="modal-backdrop" id="modal-det-antena" style="display:none" onclick="bgClose(event,'modal-det-antena')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <button class="modal-close" onclick="cerrarModal('modal-det-antena')">×</button>
+    <div id="det-ant-body"></div>
+    <div class="form-actions">
+      <button class="btn ghost" onclick="cerrarModal('modal-det-antena')">Cerrar</button>
+      <button class="btn" id="det-ant-editkey" onclick="cerrarModal('modal-det-antena');abrirModalAntena(this.dataset.key)">Editar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL RECEPTORA -->
+<div class="modal-backdrop" id="modal-receptora" style="display:none" onclick="bgClose(event,'modal-receptora')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <button class="modal-close" onclick="cerrarModal('modal-receptora')">×</button>
+    <h3 id="modal-rec-title">Agregar antena receptora</h3>
+    <div class="form-grid">
+      <div class="form-group full"><label>Nombre</label><input id="r-nombre" placeholder="Ej: Receptora Barrio Norte"></div>
+      <div class="form-group"><label>IP asignada</label><input id="r-ip" placeholder="192.168.10.x" style="font-family:var(--mono)"></div>
+      <div class="form-group"><label>Enlace asignado</label><input id="r-enlace" placeholder="192.168.10.1" style="font-family:var(--mono)"></div>
+      <div class="form-group full"><label>AP principal a la que pertenece</label><select id="r-ap"></select></div>
+      <div class="form-group full"><label>Ubicación</label><input id="r-ubicacion" placeholder="Ej: Casa finca vereda El Rosal"></div>
+      <div class="form-group full"><label>Estado</label>
+        <select id="r-estado">
+          <option value="activa">Activa</option>
+          <option value="inactiva">Inactiva</option>
+          <option value="mantenimiento">Mantenimiento</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn ghost" onclick="cerrarModal('modal-receptora')">Cancelar</button>
+      <button class="btn" onclick="guardarReceptora()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+<script>
+firebase.initializeApp({
+  apiKey:"AIzaSyCSvNcXt-RiqLy9_guYqW9CG6jn98Qk0g0",
+  authDomain:"mi-isp-antenas.firebaseapp.com",
+  databaseURL:"https://mi-isp-antenas-default-rtdb.firebaseio.com",
+  projectId:"mi-isp-antenas",
+  storageBucket:"mi-isp-antenas.firebasestorage.app",
+  messagingSenderId:"788774694886",
+  appId:"1:788774694886:web:c3d7ccb3df8a52a8b2f027"
+});
+const db=firebase.database();
+
+let clientes={},antenas={},receptoras={},finanzas={};
+let editCliKey=null,editAntenaKey=null,editReceptoraKey=null,pagoMesKey=null,pagoMesIdx=null,alertasFiltro='semana';
+const AÑO=new Date().getFullYear(), MES_ACT=new Date().getMonth();
+const AÑO_ANT=AÑO-1;
+const HOY=new Date(); HOY.setHours(0,0,0,0);
+const MESES=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+const MESES_FULL=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const IP_RANGOS=[{prefijo:'192.168.10',inicio:1,fin:254},{prefijo:'172.22.0',inicio:1,fin:254}];
+
+function setSyncStatus(s){
+  const el=document.getElementById('sync-status');
+  if(s==='ok'){el.className='sync-pill ok';el.innerHTML='<div class="sync-dot"></div> Sincronizado';}
+  if(s==='err'){el.className='sync-pill err';el.innerHTML='<div class="sync-dot"></div> Sin conexión';}
+  if(s==='load'){el.className='sync-pill load';el.innerHTML='<div class="sync-dot"></div> Conectando...';}
+}
+
+db.ref('clientes').on('value',s=>{clientes=s.val()||{};setSyncStatus('ok');refreshCurrentPanel();actualizarAlertaDot();},()=>setSyncStatus('err'));
+db.ref('antenas').on('value', s=>{antenas=s.val()||{};refreshCurrentPanel();});
+db.ref('receptoras').on('value',s=>{receptoras=s.val()||{};refreshCurrentPanel();});
+db.ref('finanzas').on('value',s=>{finanzas=s.val()||{};refreshCurrentPanel();});
+
+const fmt=n=>'$'+Number(n||0).toLocaleString('es-CO');
+
+function buildPagos(){
+  const p={};
+  for(let m=0;m<12;m++) p[`${AÑO_ANT}-${m}`]={estado:'pendiente',monto:0,nota:'',historial:[]};
+  for(let m=0;m<12;m++) p[`${AÑO}-${m}`]={estado:'pendiente',monto:0,nota:'',historial:[]};
+  return p;
+}
+function getPago(c,mi,yr=AÑO){const k=`${yr}-${mi}`;return(c.pagos&&c.pagos[k])?c.pagos[k]:{estado:'pendiente',monto:0,nota:'',historial:[]};;}
+
+function mesInicioCliente(c, yr){
+  // devuelve el mes desde el que se cuenta para ese año
+  // si no tiene fecha de instalación, desde enero de ese año
+  if(!c.fechainstal) return 0;
+  const fi=new Date(c.fechainstal);
+  const fiYear=fi.getFullYear();
+  if(yr < fiYear) return 12; // año anterior a instalación: no contar ningún mes
+  if(yr > fiYear) return 0;  // año posterior: todos los meses
+  return fi.getMonth();      // mismo año: desde el mes de instalación
+}
+
+function morasDeCliente(c){
+  if(c.estado==='gratis') return 0;
+  let m=0;
+  const desdeAnt=mesInicioCliente(c,AÑO_ANT);
+  for(let i=desdeAnt;i<=11;i++){const e=getPago(c,i,AÑO_ANT).estado;if(e==='pendiente'||e==='mora')m++;}
+  const desdeAct=mesInicioCliente(c,AÑO);
+  for(let i=desdeAct;i<=MES_ACT;i++){const e=getPago(c,i,AÑO).estado;if(e==='pendiente'||e==='mora')m++;}
+  return m;
+}
+
+function deudaCliente(c){
+  if(c.estado==='gratis') return 0;
+  let d=0;
+  const calcYear=(yr,desde,hasta)=>{
+    for(let i=desde;i<=hasta;i++){
+      const p=getPago(c,i,yr);
+      if(p.estado==='mora'||p.estado==='pendiente') d+=Number(c.valor||0);
+      else if(p.estado==='abono') d+=Number(c.valor||0)-Number(p.monto||0);
+      else if(p.estado==='favor') d-=Number(p.monto||0)-Number(c.valor||0);
+    }
+  };
+  calcYear(AÑO_ANT, mesInicioCliente(c,AÑO_ANT), 11);
+  calcYear(AÑO,     mesInicioCliente(c,AÑO),     MES_ACT);
+  return Math.max(0,d);
+}
+
+function diasVencido(c){
+  if(!c.diapago||c.estado==='gratis')return null;
+  const v=new Date(AÑO,MES_ACT,parseInt(c.diapago));v.setHours(0,0,0,0);
+  if(HOY<=v)return 0;
+  return Math.floor((HOY-v)/(864e5));
+}
+
+function diasParaVencer(c){
+  if(!c.diapago)return null;
+  const v=new Date(AÑO,MES_ACT,parseInt(c.diapago));v.setHours(0,0,0,0);
+  return Math.floor((v-HOY)/(864e5));
+}
+
+function proximoVencimiento(c){return c.diapago?`día ${c.diapago} de ${MESES_FULL[MES_ACT]}`:'—';}
+
+function diasBadge(dias){
+  if(!dias||dias<=0)return'';
+  if(dias>15)return`<span class="dias-badge urgente">${dias}d vencido</span>`;
+  if(dias>7) return`<span class="dias-badge medio">${dias}d vencido</span>`;
+  return`<span class="dias-badge leve">${dias}d vencido</span>`;
+}
+
+function estadoBadge(c){
+  if(c.estado==='gratis')return'<span class="badge purple">Gratis</span>';
+  const m=morasDeCliente(c);
+  return m>0?`<span class="badge red">${m} mora</span>`:'<span class="badge green">Al día</span>';
+}
+
+function getIPsUsadas(){
+  const map={};
+  Object.values(antenas).forEach(a=>{if(a.ip)map[a.ip.trim()]={tipo:'antena',nombre:a.nombre};});
+  Object.values(receptoras).forEach(r=>{if(r.ip)map[r.ip.trim()]={tipo:'antena',nombre:r.nombre+' (receptora)'};});
+  Object.values(clientes).forEach(c=>{if(c.ip)map[c.ip.trim()]={tipo:c.estado==='gratis'?'gratis':'cliente',nombre:c.nombre,plan:c.plan||'',antena:c.antena||''};});
+  return map;
+}
+
+let currentPanel='dashboard';
+function refreshCurrentPanel(){
+  if(currentPanel==='dashboard')renderDash();
+  if(currentPanel==='alertas')  renderAlertas();
+  if(currentPanel==='clientes') renderClientes();
+  if(currentPanel==='antenas')  {renderAntenas();renderReceptoras();}
+  if(currentPanel==='ips')      renderIPMap();
+  if(currentPanel==='pagos')    renderPagos();
+  if(currentPanel==='finanzas') renderFinanzas();
+  if(currentPanel==='whatsapp') renderWA();
+}
+
+function showPanel(id,btn){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('p-'+id).classList.add('active');
+  if(btn)btn.classList.add('active');
+  currentPanel=id;
+  refreshCurrentPanel();
+}
+
+function actualizarAlertaDot(){
+  const n=Object.values(clientes).filter(c=>c.estado!=='gratis'&&c.diapago&&diasParaVencer(c)!==null&&diasParaVencer(c)>=0&&diasParaVencer(c)<=7).length;
+  const nav=document.getElementById('nav-alertas');
+  nav.innerHTML=n>0?`Alertas <span class="alert-dot"></span>`:'Alertas';
+}
+
+/* DASHBOARD */
+function renderDash(){
+  const arr=Object.values(clientes);
+  const pagantes=arr.filter(c=>c.estado!=='gratis');
+  const mora=pagantes.filter(c=>morasDeCliente(c)>0);
+  const gratis=arr.filter(c=>c.estado==='gratis').length;
+  document.getElementById('s-total').textContent=arr.length;
+  document.getElementById('s-gratis-sub').textContent=gratis>0?gratis+' clientes gratis':'';
+  document.getElementById('s-aldia').textContent=pagantes.length-mora.length;
+  document.getElementById('s-mora').textContent=mora.length;
+  const ing=Object.values(finanzas).filter(f=>f.tipo==='ingreso').reduce((a,b)=>a+Number(b.monto),0);
+  document.getElementById('s-ing').textContent=fmt(ing);
+  const semana=Object.values(clientes).filter(c=>c.estado!=='gratis'&&c.diapago&&diasParaVencer(c)!==null&&diasParaVencer(c)>=0&&diasParaVencer(c)<=7);
+  const daw=document.getElementById('dash-alertas-wrap');
+  daw.innerHTML=semana.length?`<div class="alert warning" style="cursor:pointer" onclick="showPanel('alertas',document.querySelectorAll('.nav-btn')[1])">⚠️ <strong>${semana.length} cliente(s)</strong> vencen esta semana: ${semana.map(c=>c.nombre.split(' ')[0]).join(', ')}. <u>Ver alertas →</u></div>`:'';
+  const sorted=[...mora].sort((a,b)=>(diasVencido(b)||0)-(diasVencido(a)||0));
+  const tbody=document.getElementById('body-mora-dash');
+  if(!sorted.length){tbody.innerHTML='<tr><td colspan="6"><div class="empty"><div class="empty-icon">✅</div><div class="empty-txt">Todos los clientes al día</div></div></td></tr>';return;}
+  tbody.innerHTML=sorted.map(c=>`<tr>
+    <td><strong>${c.nombre}</strong></td>
+    <td style="font-size:12px">${proximoVencimiento(c)}</td>
+    <td>${(diasVencido(c)||0)>0?diasBadge(diasVencido(c)):'<span style="color:var(--muted);font-size:12px">—</span>'}</td>
+    <td><span class="badge red">${morasDeCliente(c)} mes(es)</span></td>
+    <td style="font-weight:700;color:var(--danger)">${fmt(deudaCliente(c))}</td>
+    <td><a href="https://wa.me/${c.tel}?text=${encodeURIComponent(msgWA(c))}" target="_blank"><button class="btn sm wa">WA ↗</button></a></td>
+  </tr>`).join('');
+}
+
+/* ALERTAS */
+function renderAlertas(){
+  const arr=Object.values(clientes).filter(c=>c.estado!=='gratis'&&c.diapago);
+  let lista=[];
+  if(alertasFiltro==='hoy') lista=arr.filter(c=>diasParaVencer(c)===0);
+  else if(alertasFiltro==='semana') lista=arr.filter(c=>{const d=diasParaVencer(c);return d!==null&&d>=0&&d<=7;});
+  else if(alertasFiltro==='vencidos') lista=arr.filter(c=>(diasVencido(c)||0)>0&&morasDeCliente(c)>0);
+  else lista=arr;
+  lista.sort((a,b)=>(diasParaVencer(a)||999)-(diasParaVencer(b)||999));
+  const semana=arr.filter(c=>{const d=diasParaVencer(c);return d!==null&&d>=0&&d<=7;});
+  document.getElementById('alertas-count').textContent=`${semana.length} vencen esta semana`;
+  const cont=document.getElementById('alertas-lista');
+  if(!lista.length){cont.innerHTML='<div class="empty"><div class="empty-icon">✅</div><div class="empty-txt">Sin alertas en este filtro</div></div>';return;}
+  cont.innerHTML=lista.map(c=>{
+    const falta=diasParaVencer(c), vencido=diasVencido(c)||0;
+    let estado='',color='';
+    if(falta===0){estado='Vence HOY';color='var(--danger)';}
+    else if(falta>0){estado=`Vence en ${falta} día(s)`;color='var(--warning)';}
+    else if(vencido>0){estado=`Venció hace ${vencido} día(s)`;color='var(--danger)';}
+    else{estado=`Día ${c.diapago} de cada mes`;color='var(--muted)';}
+    return`<div class="alerta-item">
+      <div class="alerta-avatar">${(c.nombre||'?').split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase()}</div>
+      <div style="flex:1;min-width:0">
+        <div class="alerta-nombre">${c.nombre}</div>
+        <div class="alerta-det">${c.tel||'—'} · ${c.plan||'—'} · ${fmt(c.valor)}/mes</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;margin-right:8px">
+        <div style="font-size:12px;font-weight:700;color:${color}">${estado}</div>
+        <div style="margin-top:3px">${estadoBadge(c)}</div>
+      </div>
+      <a href="https://wa.me/${c.tel}?text=${encodeURIComponent(msgWA(c))}" target="_blank"><button class="btn sm wa">WA ↗</button></a>
+    </div>`;
+  }).join('');
+}
+
+function filtrarAlertas(f,btn){
+  alertasFiltro=f;
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  renderAlertas();
+}
+
+/* CLIENTES */
+function renderClientes(filtro=''){
+  const f=filtro.toLowerCase();
+  const arr=Object.entries(clientes).filter(([k,c])=>!f||c.nombre.toLowerCase().includes(f)||c.ip.includes(f)||(c.tel||'').includes(f));
+  const tbody=document.getElementById('body-clientes');
+  if(!arr.length){tbody.innerHTML='<tr><td colspan="9"><div class="empty"><div class="empty-txt">Sin clientes registrados</div></div></td></tr>';return;}
+  tbody.innerHTML=arr.map(([key,c])=>`<tr>
+    <td><strong>${c.nombre}</strong></td>
+    <td style="font-size:12px">${c.tel||'—'}</td>
+    <td><span class="ip" style="cursor:pointer" onclick="irAIPMap('${c.ip}')" title="Ver en mapa">${c.ip||'—'}</span></td>
+    <td style="font-size:12px">${c.antena||'—'}</td>
+    <td style="font-size:12px">${c.plan||'—'}</td>
+    <td style="font-size:12px">${fmt(c.valor)}</td>
+    <td style="font-size:12px">${c.fechainstal?new Date(c.fechainstal).toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'}):'—'}</td>
+    <td style="font-size:12px;text-align:center">${c.diapago?'<strong>día '+c.diapago+'</strong>':'—'}</td>
+    <td>${estadoBadge(c)}</td>
+    <td style="display:flex;gap:4px;flex-wrap:wrap">
+      <button class="btn ghost sm" onclick="abrirModalCliente('${key}')">Editar</button>
+      <button class="btn danger sm" onclick="eliminarCliente('${key}','${c.nombre}')">✕</button>
+    </td>
+  </tr>`).join('');
+}
+function filtrarClientes(v){renderClientes(v);}
+
+function irAIPMap(ip){
+  showPanel('ips',document.querySelectorAll('.nav-btn')[4]);
+  setTimeout(()=>{
+    document.querySelectorAll('.ip-cell').forEach(el=>{
+      el.classList.toggle('highlighted',el.dataset.ip===ip);
+    });
+  },200);
+}
+
+function validarIPInput(inp){
+  const v=inp.value.trim();
+  const hint=document.getElementById('f-ip-hint');
+  if(!v){hint.textContent='';return;}
+  const ipUsadas=getIPsUsadas();
+  const editNombre=editCliKey?clientes[editCliKey]?.nombre:'';
+  if(ipUsadas[v]&&ipUsadas[v].nombre!==editNombre){
+    hint.textContent='⚠️ IP en uso: '+ipUsadas[v].nombre;
+    hint.style.color='var(--danger)';
+  } else {
+    // check if IP belongs to known ranges
+    const inRange=IP_RANGOS.some(r=>{
+      const parts=v.split('.');
+      const prefix=parts.slice(0,3).join('.');
+      const last=parseInt(parts[3]);
+      return prefix===r.prefijo&&last>=r.inicio&&last<=r.fin;
+    });
+    hint.textContent=inRange?'✓ IP disponible en tu red':'ℹ️ IP fuera de los rangos configurados';
+    hint.style.color=inRange?'var(--success)':'var(--warning)';
+  }
+}
+
+function abrirModalCliente(key=null){
+  editCliKey=key;
+  document.getElementById('modal-cli-title').textContent=key?'Editar cliente':'Agregar cliente';
+  const c=key?(clientes[key]||{}):{};
+  ['nombre','tel','ip','plan','valor','diapago','fechainstal'].forEach(id=>document.getElementById('f-'+id).value=c[id]||'');
+  document.getElementById('f-estado').value=c.estado||'activo';
+  document.getElementById('f-ip-hint').textContent='';
+  const sel=document.getElementById('f-antena');
+  sel.innerHTML=Object.values(antenas).map(a=>`<option value="${a.nombre}" ${c.antena===a.nombre?'selected':''}>${a.nombre}</option>`).join('')||'<option value="">Sin antenas registradas</option>';
+  document.getElementById('modal-cliente').style.display='flex';
+}
+
+function guardarCliente(){
+  const nombre=document.getElementById('f-nombre').value.trim();
+  const ip=document.getElementById('f-ip').value.trim();
+  if(!nombre||!ip){alert('Nombre e IP son obligatorios');return;}
+  const ipUsadas=getIPsUsadas();
+  const editNombre=editCliKey?clientes[editCliKey]?.nombre:'';
+  if(ipUsadas[ip]&&ipUsadas[ip].nombre!==editNombre){
+    if(!confirm(`La IP ${ip} ya está asignada a "${ipUsadas[ip].nombre}". ¿Continuar?`))return;
+  }
+  const key=editCliKey||db.ref('clientes').push().key;
+  const existing=editCliKey?(clientes[editCliKey]||{}):{};
+  db.ref('clientes/'+key).set({nombre,ip,tel:document.getElementById('f-tel').value.trim(),antena:document.getElementById('f-antena').value,plan:document.getElementById('f-plan').value.trim(),valor:Number(document.getElementById('f-valor').value)||0,diapago:Number(document.getElementById('f-diapago').value)||'',fechainstal:document.getElementById('f-fechainstal').value||'',estado:document.getElementById('f-estado').value,pagos:existing.pagos||buildPagos()});
+  cerrarModal('modal-cliente');
+}
+
+function eliminarCliente(key,nombre){if(!confirm(`¿Eliminar a ${nombre}?`))return;db.ref('clientes/'+key).remove();}
+
+/* ANTENAS */
+function renderAntenas(){
+  const arr=Object.entries(antenas);
+  const tbody=document.getElementById('body-antenas');
+  if(!arr.length){tbody.innerHTML='<tr><td colspan="8"><div class="empty"><div class="empty-txt">Sin antenas registradas</div></div></td></tr>';return;}
+  tbody.innerHTML=arr.map(([key,a])=>{
+    const countCli=Object.values(clientes).filter(c=>c.antena===a.nombre).length;
+    const countRec=Object.values(receptoras).filter(r=>r.ap===a.nombre).length;
+    const countTotal=countCli+countRec;
+    const detalle=countTotal>0?` <span style="font-size:10px;opacity:.7">(${countCli} cli${countRec>0?`, ${countRec} rec`:''})</span>`:'';
+    return`<tr>
+      <td><strong>${a.nombre}</strong></td>
+      <td><span class="ip">${a.ip}</span></td>
+      <td style="font-size:12px">${a.frecuencia||'—'}</td>
+      <td style="font-size:12px;font-family:var(--mono)">${a.enlace||'—'}</td>
+      <td style="font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${a.ubicacion||'—'}</td>
+      <td><span class="badge blue">${countTotal}</span>${detalle}</td>
+      <td><span class="badge ${a.estado==='activa'?'green':a.estado==='mantenimiento'?'orange':'red'}">${a.estado}</span></td>
+      <td style="display:flex;gap:4px;flex-wrap:wrap">
+        <button class="btn ghost sm" onclick="verDetalleAntena('${key}')">Ver</button>
+        <button class="btn ghost sm" onclick="abrirModalAntena('${key}')">Editar</button>
+        <button class="btn danger sm" onclick="eliminarAntena('${key}','${a.nombre}')">✕</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function abrirModalAntena(key=null){
+  editAntenaKey=key;
+  document.getElementById('modal-ant-title').textContent=key?'Editar antena':'Agregar antena';
+  const a=key?(antenas[key]||{}):{};
+  ['a-nombre','a-ip','a-ubicacion','a-frecuencia','a-enlace','a-usuario'].forEach(id=>{
+    document.getElementById(id).value=a[id.replace('a-','')]||'';
+  });
+  document.getElementById('a-contrasena').value=a.contrasena||'';
+  document.getElementById('a-contrasena-cx').value=a.contrasenaCx||'';
+  document.getElementById('a-estado').value=a.estado||'activa';
+  document.getElementById('modal-antena').style.display='flex';
+}
+
+function guardarAntena(){
+  const nombre=document.getElementById('a-nombre').value.trim();
+  const ip=document.getElementById('a-ip').value.trim();
+  if(!nombre||!ip){alert('Nombre e IP son obligatorios');return;}
+  const key=editAntenaKey||db.ref('antenas').push().key;
+  db.ref('antenas/'+key).set({
+    nombre,ip,
+    ubicacion:   document.getElementById('a-ubicacion').value.trim(),
+    frecuencia:  document.getElementById('a-frecuencia').value.trim(),
+    enlace:      document.getElementById('a-enlace').value.trim(),
+    usuario:     document.getElementById('a-usuario').value.trim(),
+    contrasena:  document.getElementById('a-contrasena').value,
+    contrasenaCx:document.getElementById('a-contrasena-cx').value,
+    estado:      document.getElementById('a-estado').value,
+  });
+  cerrarModal('modal-antena');
+}
+
+function verDetalleAntena(key){
+  const a=antenas[key];if(!a)return;
+  const count=Object.values(clientes).filter(c=>c.antena===a.nombre).length;
+  const countRec=Object.values(receptoras).filter(r=>r.ap===a.nombre).length;
+  const rows=[
+    ['IP principal',    `<span class="ip">${a.ip||'—'}</span>`],
+    ['Frecuencia',      a.frecuencia||'—'],
+    ['Enlace asignado', a.enlace?`<span class="ip">${a.enlace}</span>`:'—'],
+    ['Ubicación',       a.ubicacion||'—'],
+    ['Usuario',         a.usuario||'—'],
+    ['Contraseña acceso', a.contrasena?`<span style="font-family:var(--mono);letter-spacing:2px">${'•'.repeat(a.contrasena.length)}</span> <button class="btn ghost xs" onclick="togglePass('det-pass1','${key}','contrasena')">Ver</button>`:'—'],
+    ['Contraseña conexión', a.contrasenaCx?`<span style="font-family:var(--mono);letter-spacing:2px" id="det-pass2-mask">${'•'.repeat(a.contrasenaCx.length)}</span> <button class="btn ghost xs" onclick="togglePass('det-pass2','${key}','contrasenaCx')">Ver</button>`:'—'],
+    ['Clientes conectados', `<span class="badge blue">${count}</span>`],
+    ['Receptoras enlazadas', `<span class="badge teal">${countRec}</span>${countRec>0?' — '+Object.values(receptoras).filter(r=>r.ap===a.nombre).map(r=>r.nombre).join(', '):''}` ],
+    ['Estado',          `<span class="badge ${a.estado==='activa'?'green':a.estado==='mantenimiento'?'orange':'red'}">${a.estado}</span>`],
+  ];
+  const html=`
+    <div style="font-size:17px;font-weight:700;margin-bottom:16px">📡 ${a.nombre}</div>
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      ${rows.map(([k,v])=>`<tr>
+        <td style="padding:8px 0;color:var(--muted);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;width:45%;border-bottom:1px solid var(--border)">${k}</td>
+        <td style="padding:8px 0;border-bottom:1px solid var(--border)">${v}</td>
+      </tr>`).join('')}
+    </table>`;
+  document.getElementById('det-ant-body').innerHTML=html;
+  document.getElementById('det-ant-editkey').dataset.key=key;
+  document.getElementById('modal-det-antena').style.display='flex';
+}
+
+function togglePass(field,key,prop){
+  const a=antenas[key];if(!a)return;
+  const btn=event.target;
+  const maskId=field+'-mask';
+  // find the span before the button
+  const span=btn.previousElementSibling;
+  if(!span)return;
+  if(btn.textContent==='Ver'){
+    span.textContent=a[prop];
+    span.style.letterSpacing='normal';
+    btn.textContent='Ocultar';
+  } else {
+    span.textContent='•'.repeat((a[prop]||'').length);
+    span.style.letterSpacing='2px';
+    btn.textContent='Ver';
+  }
+}
+
+function eliminarAntena(key,nombre){if(!confirm(`¿Eliminar antena ${nombre}?`))return;db.ref('antenas/'+key).remove();}
+
+/* RECEPTORAS */
+function renderReceptoras(){
+  const arr=Object.entries(receptoras);
+  const tbody=document.getElementById('body-receptoras');
+  if(!arr.length){tbody.innerHTML='<tr><td colspan="7"><div class="empty"><div class="empty-txt">Sin antenas receptoras registradas</div></div></td></tr>';return;}
+  tbody.innerHTML=arr.map(([key,r])=>{
+    const countRec=Object.values(clientes).filter(c=>c.antena===r.nombre).length;
+    return`<tr>
+      <td><strong>${r.nombre}</strong></td>
+      <td><span class="ip">${r.ip||'—'}</span></td>
+      <td style="font-size:12px;font-family:var(--mono)">${r.enlace||'—'}</td>
+      <td style="font-size:12px">${r.ap?`<span class="badge blue">${r.ap}</span>`:'—'}</td>
+      <td style="font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.ubicacion||'—'}</td>
+      <td><span class="badge ${r.estado==='activa'?'green':r.estado==='mantenimiento'?'orange':'red'}">${r.estado}</span></td>
+      <td style="display:flex;gap:4px">
+        <button class="btn ghost sm" onclick="abrirModalReceptora('${key}')">Editar</button>
+        <button class="btn danger sm" onclick="eliminarReceptora('${key}','${r.nombre}')">✕</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function abrirModalReceptora(key=null){
+  editReceptoraKey=key;
+  document.getElementById('modal-rec-title').textContent=key?'Editar antena receptora':'Agregar antena receptora';
+  const r=key?(receptoras[key]||{}):{};
+  ['r-nombre','r-ip','r-enlace','r-ubicacion'].forEach(id=>document.getElementById(id).value=r[id.replace('r-','')]||'');
+  document.getElementById('r-estado').value=r.estado||'activa';
+  // poblar select de APs principales
+  const sel=document.getElementById('r-ap');
+  const aps=Object.values(antenas);
+  sel.innerHTML=(aps.length
+    ? '<option value="">— Sin asignar —</option>'+aps.map(a=>`<option value="${a.nombre}" ${r.ap===a.nombre?'selected':''}>${a.nombre}</option>`).join('')
+    : '<option value="">Sin APs principales registradas</option>');
+  document.getElementById('modal-receptora').style.display='flex';
+}
+
+function guardarReceptora(){
+  const nombre=document.getElementById('r-nombre').value.trim();
+  if(!nombre){alert('El nombre es obligatorio');return;}
+  const key=editReceptoraKey||db.ref('receptoras').push().key;
+  db.ref('receptoras/'+key).set({
+    nombre,
+    ip:       document.getElementById('r-ip').value.trim(),
+    enlace:   document.getElementById('r-enlace').value.trim(),
+    ap:       document.getElementById('r-ap').value,
+    ubicacion:document.getElementById('r-ubicacion').value.trim(),
+    estado:   document.getElementById('r-estado').value,
+  });
+  cerrarModal('modal-receptora');
+}
+
+function eliminarReceptora(key,nombre){if(!confirm(`¿Eliminar receptora ${nombre}?`))return;db.ref('receptoras/'+key).remove();}
+
+/* MAPA DE IPs */
+function renderIPMap(){
+  const ipUsadas=getIPsUsadas();
+  let totalLibre=0,totalUsada=0;
+  IP_RANGOS.forEach((rango,ri)=>{
+    const grid=document.getElementById(`grid-rango${ri+1}`);
+    const stats=document.getElementById(`stats-rango${ri+1}`);
+    let libres=0,usadas=0,cells='';
+    for(let i=rango.inicio;i<=rango.fin;i++){
+      const ip=`${rango.prefijo}.${i}`;
+      const info=ipUsadas[ip];
+      let cls='libre',tooltip=`${ip} — Libre`;
+      if(info){
+        cls=info.tipo;
+        tooltip=info.tipo==='antena'?`${ip} — 📡 Antena: ${info.nombre}`:info.tipo==='gratis'?`${ip} — 🆓 ${info.nombre} (Gratis)`:`${ip} — 👤 ${info.nombre}${info.plan?' · '+info.plan:''}`;
+        usadas++;
+      } else { libres++; }
+      cells+=`<div class="ip-cell ${cls}" data-ip="${ip}" title="${tooltip}">${i}<span class="ip-tooltip">${tooltip}</span></div>`;
+    }
+    grid.innerHTML=cells;
+    totalLibre+=libres; totalUsada+=usadas;
+    stats.innerHTML=`
+      <span class="ip-range-stat"><span class="ip-dot" style="background:var(--bg3);border:1px solid var(--border)"></span>${libres} libres</span>
+      <span class="ip-range-stat"><span class="ip-dot" style="background:var(--primary)"></span>${usadas} en uso</span>
+    `;
+  });
+  document.getElementById('ip-libre-count').textContent=`${totalLibre} IPs libres`;
+  document.getElementById('ip-usada-count').textContent=`${totalUsada} IPs en uso`;
+}
+
+/* BÚSQUEDA RÁPIDA IP */
+function buscarIP(val){
+  const res=document.getElementById('ip-search-result');
+  const v=val.trim();
+  if(v.length<3){res.classList.remove('visible');return;}
+  const ipUsadas=getIPsUsadas();
+  const matches=[];
+  IP_RANGOS.forEach(r=>{
+    for(let i=r.inicio;i<=r.fin;i++){
+      const ip=`${r.prefijo}.${i}`;
+      if(ip.includes(v)){matches.push({ip,info:ipUsadas[ip]});if(matches.length>=8)return;}
+    }
+  });
+  if(!matches.length){
+    res.innerHTML='<div style="color:var(--muted);font-size:12px;padding:4px 0">Sin resultados en tus rangos</div>';
+  } else {
+    res.innerHTML=matches.map(m=>{
+      if(!m.info)return`<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:12px"><span class="ip">${m.ip}</span> <span style="color:var(--success);font-size:11px;margin-left:6px">Libre</span></div>`;
+      const color=m.info.tipo==='antena'?'var(--success)':m.info.tipo==='gratis'?'var(--purple)':'var(--primary)';
+      const icono=m.info.tipo==='antena'?'📡':m.info.tipo==='gratis'?'🆓':'👤';
+      return`<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:12px;cursor:pointer" onclick="irAIPMap('${m.ip}')">
+        <span class="ip">${m.ip}</span>
+        <span style="color:${color};font-size:11px;margin-left:6px">${icono} ${m.info.nombre}</span>
+      </div>`;
+    }).join('')+'<div style="font-size:10px;color:var(--muted);margin-top:6px">Clic para ver en mapa</div>';
+  }
+  res.classList.add('visible');
+}
+function ocultarIPResult(){document.getElementById('ip-search-result').classList.remove('visible');}
+
+/* PAGOS */
+let pagoAño=AÑO; // año actualmente viendo en pagos
+
+function renderPagos(){
+  const sel=document.getElementById('sel-cli-pago');
+  const keyActual=sel.value; // guardar selección actual
+  const arr=Object.entries(clientes);
+  sel.innerHTML=arr.length?arr.map(([k,c])=>`<option value="${k}">${c.nombre}</option>`).join(''):'<option value="">Sin clientes</option>';
+  // restaurar cliente seleccionado si sigue existiendo
+  if(keyActual&&clientes[keyActual]) sel.value=keyActual;
+  renderPagosDetalle();
+}
+
+function renderPagosDetalle(){
+  const selAño=document.getElementById('sel-año-pago');
+  pagoAño=selAño&&selAño.value==='ant'?AÑO_ANT:AÑO;
+  const esAñoAnt=pagoAño===AÑO_ANT;
+
+  const key=document.getElementById('sel-cli-pago').value;
+  const c=clientes[key];
+  if(!c){document.getElementById('detalle-pagos').innerHTML='<div class="empty"><div class="empty-txt">Sin clientes</div></div>';return;}
+  const mora=morasDeCliente(c),deuda=deudaCliente(c),dias=diasVencido(c);
+  let eHtml=mora>0?`<span class="badge red" style="font-size:13px;padding:5px 13px">${mora} mes(es) en mora</span>${(dias||0)>0?' '+diasBadge(dias):''}`:c.estado==='gratis'?'<span class="badge purple" style="font-size:13px;padding:5px 13px">Gratis</span>':'<span class="badge green" style="font-size:13px;padding:5px 13px">✓ Al día</span>';
+  document.getElementById('detalle-pagos').innerHTML=`
+    <div class="card" style="padding:18px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-size:17px;font-weight:700">${c.nombre}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:3px">${c.plan||'—'} · ${fmt(c.valor)}/mes · <span class="ip">${c.ip||'—'}</span>${c.diapago?` · Vence día <strong>${c.diapago}</strong>`:''}</div>
+          ${c.fechainstal?`<div style="font-size:12px;color:var(--muted);margin-top:2px">📅 Cliente desde: <strong>${new Date(c.fechainstal).toLocaleDateString('es-CO',{year:'numeric',month:'long',day:'numeric'})}</strong></div>`:''}
+          ${mora>0&&c.estado!=='gratis'?`<div style="font-size:12px;color:var(--danger);margin-top:4px;font-weight:600">Deuda total (ambos años): ${fmt(deuda)}</div>`:''}
+        </div>
+        <div>${eHtml}</div>
+      </div>
+      ${esAñoAnt?`<div class="alert warning" style="font-size:12px">📅 Viendo mensualidades de <strong>2025</strong> — meses pendientes de año anterior</div>`:''}
+      ${c.estado==='gratis'?'<div class="alert success" style="font-size:12px">Servicio gratuito — no se calculan moras.</div>':''}
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Haz clic en un mes para registrar pago, abono o nota</div>
+      <div class="meses-grid">
+        ${MESES.map((m,mi)=>{
+          const mesInicio=mesInicioCliente(c,pagoAño);
+          const antesDeInstal = mi < mesInicio;
+          const p=getPago(c,mi,pagoAño);
+          const est=p.estado||'pendiente';
+          const future=!esAñoAnt&&mi>MES_ACT;
+          const ico=est==='pagado'?'✓':est==='mora'?'✕':est==='abono'?'½':est==='favor'?'↑':'·';
+          const sal=(est==='abono'||est==='favor')&&p.monto?`<div class="mes-saldo">${fmt(p.monto)}</div>`:'';
+          if(antesDeInstal) return`<div class="mes-card" style="opacity:.2;cursor:not-allowed;background:var(--bg3)" title="${MESES_FULL[mi]} ${pagoAño} — Antes de la instalación">
+            <div class="mes-nombre">${m}</div>
+            <div class="mes-estado-txt">—</div>
+          </div>`;
+          return`<div class="mes-card ${est}" onclick="${future?'':(`abrirModalPagoMes('${key}',${mi},${pagoAño})`)}" style="${future?'opacity:.45;cursor:default':''}" title="${MESES_FULL[mi]} ${pagoAño}${p.nota?' — '+p.nota:''}">
+            <div class="mes-nombre">${m}</div>
+            <div class="mes-estado-txt">${future?'·':ico}</div>${sal}
+            ${p.nota?`<div style="position:absolute;top:3px;right:4px;font-size:8px">📝</div>`:''}
+          </div>`;
+        }).join('')}
+      </div>
+      <div class="legend">
+        <span><span class="leg-dot" style="background:var(--success)"></span>Pagado</span>
+        <span><span class="leg-dot" style="background:var(--danger)"></span>Mora</span>
+        <span><span class="leg-dot" style="background:var(--warning)"></span>Abono</span>
+        <span><span class="leg-dot" style="background:var(--purple)"></span>A favor</span>
+        <span><span class="leg-dot" style="background:var(--bg3);border:1px solid var(--border)"></span>Pendiente</span>
+        <span><span class="leg-dot" style="background:var(--bg3);opacity:.4;border:1px solid var(--border)"></span>Antes de instalación</span>
+      </div>
+    </div>`;
+}
+
+/* MODAL PAGO MES */
+let pagoMesAño=AÑO;
+function abrirModalPagoMes(clienteKey,mi,yr=AÑO){
+  const c=clientes[clienteKey];if(!c)return;
+  pagoMesKey=clienteKey;pagoMesIdx=mi;pagoMesAño=yr;
+  const p=getPago(c,mi,yr);
+  document.getElementById('pm-titulo').textContent=`Pago — ${MESES_FULL[mi]} ${yr} — ${c.nombre}`;
+  document.getElementById('pm-estado').value=p.estado||'pendiente';
+  document.getElementById('pm-monto').value=p.monto||'';
+  document.getElementById('pm-nota').value=p.nota||'';
+  document.getElementById('pm-fecha').value=p.fecha||new Date().toISOString().split('T')[0];
+  const val=Number(c.valor||0),ab=Number(p.monto||0),pend=val-ab;
+  document.getElementById('pm-saldo-box').innerHTML=`
+    <div class="saldo-row"><span>Valor mensual</span><span>${fmt(val)}</span></div>
+    <div class="saldo-row"><span>Monto recibido</span><span style="color:var(--success)">${fmt(ab)}</span></div>
+    <div class="saldo-row"><span>${pend>=0?'Pendiente':'Saldo a favor'}</span><span style="color:${pend>=0?'var(--danger)':'var(--purple)'}">${fmt(Math.abs(pend))}</span></div>`;
+  const hist=p.historial||[];
+  document.getElementById('pm-historial-wrap').innerHTML=hist.length?`<div style="margin-top:14px"><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Historial del mes</div><div class="card">${hist.map(h=>`<div class="historial-item"><div class="historial-fecha">${h.fecha||''}</div><div class="historial-desc">${h.desc||''}</div>${h.nota?`<div class="historial-nota">${h.nota}</div>`:''}</div>`).join('')}</div></div>`:'';
+  actualizarVistaAbono();
+  document.getElementById('modal-pago-mes').style.display='flex';
+}
+
+function actualizarVistaAbono(){
+  const est=document.getElementById('pm-estado').value;
+  const wrap=document.getElementById('pm-monto-wrap');
+  wrap.style.display=(est==='abono'||est==='favor')?'flex':'none';
+  document.getElementById('pm-monto-hint').textContent=est==='abono'?'Ingresa el monto que abonó el cliente':'Ingresa el total pagado (mayor al valor mensual)';
+}
+
+function guardarPagoMes(){
+  const c=clientes[pagoMesKey];if(!c)return;
+  const est=document.getElementById('pm-estado').value;
+  const monto=Number(document.getElementById('pm-monto').value)||0;
+  const nota=document.getElementById('pm-nota').value.trim();
+  const fecha=document.getElementById('pm-fecha').value;
+  const pAnt=getPago(c,pagoMesIdx,pagoMesAño);
+  const hist=[...(pAnt.historial||[])];
+  const desc=est==='pagado'?'Pago completo':est==='abono'?`Abono ${fmt(monto)}`:est==='favor'?`Pago con saldo a favor ${fmt(monto)}`:est==='mora'?'Marcado en mora':'Estado: pendiente';
+  hist.push({fecha,desc,nota:nota||''});
+  db.ref(`clientes/${pagoMesKey}/pagos/${pagoMesAño}-${pagoMesIdx}`).set({estado:est,monto:(est==='abono'||est==='favor')?monto:0,nota,fecha,historial:hist});
+  if(est==='pagado'||est==='abono'||est==='favor'){
+    const montoFin=est==='pagado'?Number(c.valor||0):monto;
+    if(montoFin>0) db.ref('finanzas').push({fecha,tipo:'ingreso',desc:`Pago ${MESES_FULL[pagoMesIdx]} ${pagoMesAño} — ${c.nombre}${nota?' ('+nota+')':''}`,monto:montoFin});
+  }
+  cerrarModal('modal-pago-mes');
+  // volver al mismo cliente sin resetear el select
+  setTimeout(()=>{
+    const sel=document.getElementById('sel-cli-pago');
+    if(sel.value!==pagoMesKey) sel.value=pagoMesKey;
+    renderPagosDetalle();
+  },300);
+}
+
+/* FINANZAS */
+function renderFinanzas(){
+  const arr=Object.values(finanzas);
+  const ing=arr.filter(f=>f.tipo==='ingreso').reduce((a,b)=>a+Number(b.monto),0);
+  const eg=arr.filter(f=>f.tipo==='egreso').reduce((a,b)=>a+Number(b.monto),0);
+  document.getElementById('fin-ing').textContent=fmt(ing);
+  document.getElementById('fin-eg').textContent=fmt(eg);
+  const bal=ing-eg;
+  const bEl=document.getElementById('fin-bal');
+  bEl.textContent=fmt(bal);bEl.className='stat-val '+(bal>=0?'green':'red');
+  const sorted=Object.entries(finanzas).sort((a,b)=>b[1].fecha.localeCompare(a[1].fecha));
+  const tbody=document.getElementById('body-finanzas');
+  if(!sorted.length){tbody.innerHTML='<tr><td colspan="5"><div class="empty"><div class="empty-txt">Sin movimientos</div></div></td></tr>';return;}
+  tbody.innerHTML=sorted.map(([key,f])=>`<tr>
+    <td style="font-size:12px;font-family:var(--mono)">${f.fecha}</td>
+    <td><span class="badge ${f.tipo==='ingreso'?'green':'red'}">${f.tipo}</span></td>
+    <td>${f.desc}</td>
+    <td style="font-weight:700;color:${f.tipo==='ingreso'?'var(--success)':'var(--danger)'}">${f.tipo==='egreso'?'-':''}${fmt(f.monto)}</td>
+    <td><button class="btn danger xs" onclick="eliminarMovimiento('${key}')">✕</button></td>
+  </tr>`).join('');
+}
+
+function abrirModalMovimiento(){document.getElementById('m-fecha').value=new Date().toISOString().split('T')[0];['m-desc','m-monto'].forEach(id=>document.getElementById(id).value='');document.getElementById('modal-mov').style.display='flex';}
+
+function guardarMovimiento(){
+  const desc=document.getElementById('m-desc').value.trim(),monto=Number(document.getElementById('m-monto').value);
+  if(!desc||!monto){alert('Descripción y monto son obligatorios');return;}
+  db.ref('finanzas').push({fecha:document.getElementById('m-fecha').value,tipo:document.getElementById('m-tipo').value,desc,monto});
+  cerrarModal('modal-mov');
+}
+
+function eliminarMovimiento(key){if(!confirm('¿Eliminar este movimiento?'))return;db.ref('finanzas/'+key).remove();}
+
+/* WHATSAPP */
+function msgWA(c){
+  const mora=morasDeCliente(c),deuda=deudaCliente(c);
+  const venc=c.diapago?`Su fecha de pago es el día *${c.diapago}* de cada mes. `:'';
+  const dias=diasVencido(c);
+  const diasTxt=(dias||0)>0?`Lleva *${dias} días* de retraso. `:'';
+  return`Hola ${(c.nombre||'').split(' ')[0]} 👋, le recordamos que tiene *${mora} mes(es) pendiente(s)* de pago por su servicio de internet (plan ${c.plan||'—'}). ${venc}${diasTxt}El valor a cancelar es *${fmt(deuda)}*. Por favor comuníquese para regularizar su cuenta. ¡Gracias! 📡`;
+}
+
+function renderWA(){
+  const mora=Object.values(clientes).filter(c=>morasDeCliente(c)>0).sort((a,b)=>(diasVencido(b)||0)-(diasVencido(a)||0));
+  const cont=document.getElementById('lista-wa');
+  if(!mora.length){cont.innerHTML='<div class="empty"><div class="empty-icon">🎉</div><div class="empty-txt">Todos los clientes están al día</div></div>';return;}
+  cont.innerHTML=mora.map(c=>`<div class="wa-card">
+    <div class="wa-top">
+      <div class="wa-avatar">${(c.nombre||'?').split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase()}</div>
+      <div>
+        <div class="wa-nombre">${c.nombre}</div>
+        <div class="wa-detalle">${c.tel} · ${morasDeCliente(c)} mes(es) mora · Deuda: <strong>${fmt(deudaCliente(c))}</strong>${(diasVencido(c)||0)>0?' · '+diasBadge(diasVencido(c)):''}</div>
+      </div>
+    </div>
+    <div class="wa-msg-box">${msgWA(c)}</div>
+    <a href="https://wa.me/${c.tel}?text=${encodeURIComponent(msgWA(c))}" target="_blank"><button class="btn wa">Enviar por WhatsApp ↗</button></a>
+  </div>`).join('');
+}
+
+function enviarTodos(){
+  const mora=Object.values(clientes).filter(c=>morasDeCliente(c)>0);
+  if(!mora.length){alert('No hay clientes en mora');return;}
+  if(!confirm(`¿Abrir WhatsApp para ${mora.length} cliente(s) en mora?`))return;
+  mora.forEach((c,i)=>setTimeout(()=>window.open(`https://wa.me/${c.tel}?text=${encodeURIComponent(msgWA(c))}`, '_blank'),i*800));
+}
+
+function cerrarModal(id){document.getElementById(id).style.display='none';}
+function bgClose(e,id){if(e.target.id===id)cerrarModal(id);}
+
+document.getElementById('sel-año-pago').value='act';
+setSyncStatus('load');
+</script>
+</body>
+</html>
