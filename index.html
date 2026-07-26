@@ -226,6 +226,7 @@ textarea{resize:vertical;min-height:70px;line-height:1.5}
     <span class="sec-title">Clientes</span>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <input class="search-bar" placeholder="Buscar nombre, IP, teléfono..." oninput="filtrarClientes(this.value)">
+      <button class="btn ghost" onclick="abrirModalImportar()">📥 Importar Excel</button>
       <button class="btn" onclick="abrirModalCliente()">+ Agregar cliente</button>
     </div>
   </div>
@@ -308,6 +309,17 @@ textarea{resize:vertical;min-height:70px;line-height:1.5}
     <div class="stat-card"><div class="stat-label">Total ingresos</div><div class="stat-val green" id="fin-ing">$0</div></div>
     <div class="stat-card"><div class="stat-label">Total egresos</div><div class="stat-val red" id="fin-eg">$0</div></div>
     <div class="stat-card"><div class="stat-label">Balance</div><div class="stat-val blue" id="fin-bal">$0</div></div>
+  </div>
+  <div class="card">
+    <div class="sec-header" style="padding:14px 14px 0">
+      <span class="sec-title">Balance mensual</span>
+      <select id="sel-año-fin" onchange="renderBalanceMensual()" style="width:100px"></select>
+    </div>
+    <div class="tbl-wrap"><table class="tbl">
+      <thead><tr><th>Mes</th><th>Ingresos</th><th>Egresos</th><th>Balance</th></tr></thead>
+      <tbody id="body-balance-mensual"></tbody>
+      <tfoot><tr style="background:var(--bg2)"><td style="font-weight:700">Total año</td><td id="bm-tot-ing" style="font-weight:700;color:var(--success)"></td><td id="bm-tot-eg" style="font-weight:700;color:var(--danger)"></td><td id="bm-tot-bal" style="font-weight:700"></td></tr></tfoot>
+    </table></div>
   </div>
   <div class="card"><div class="tbl-wrap"><table class="tbl">
     <thead><tr><th>Fecha</th><th>Tipo</th><th>Descripción</th><th>Monto</th><th></th></tr></thead>
@@ -474,6 +486,28 @@ textarea{resize:vertical;min-height:70px;line-height:1.5}
   </div>
 </div>
 
+<!-- MODAL IMPORTAR EXCEL -->
+<div class="modal-backdrop" id="modal-importar" style="display:none" onclick="bgClose(event,'modal-importar')">
+  <div class="modal" style="max-width:840px" onclick="event.stopPropagation()">
+    <button class="modal-close" onclick="cerrarModal('modal-importar')">×</button>
+    <h3>Importar clientes desde Excel</h3>
+    <div class="alert info" style="font-size:12px">Sube tu archivo de Excel o el exportado desde Google Sheets (.xlsx, .xls o .csv). Después indica qué columna de tu archivo corresponde a cada dato del sistema. Los clientes se agregan como nuevos; no reemplaza ni borra los que ya tienes.</div>
+    <div class="form-group full" style="margin-bottom:12px"><label>Archivo</label><input type="file" id="imp-file" accept=".xlsx,.xls,.csv" onchange="leerArchivoImportar(event)"></div>
+    <div id="imp-mapeo-wrap" style="display:none">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">¿Qué columna corresponde a cada dato?</div>
+      <div class="form-grid" id="imp-mapeo"></div>
+      <div style="margin:16px 0 6px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Vista previa (primeras 5 filas)</div>
+      <div class="tbl-wrap" style="max-height:220px"><table class="tbl" id="imp-preview"></table></div>
+      <div class="form-hint" id="imp-resumen" style="margin-top:8px"></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn ghost" onclick="cerrarModal('modal-importar')">Cancelar</button>
+      <button class="btn" id="imp-btn-importar" style="display:none" onclick="importarClientesExcel()">Importar clientes</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 <script>
@@ -1135,6 +1169,42 @@ function renderFinanzas(){
     <td style="font-weight:700;color:${f.tipo==='ingreso'?'var(--success)':'var(--danger)'}">${f.tipo==='egreso'?'-':''}${fmt(f.monto)}</td>
     <td><button class="btn danger xs" onclick="eliminarMovimiento('${key}')">✕</button></td>
   </tr>`).join('');
+  renderBalanceMensual();
+}
+
+function renderBalanceMensual(){
+  const sel=document.getElementById('sel-año-fin');
+  const años=new Set(Object.values(finanzas).map(f=>(f.fecha||'').slice(0,4)).filter(Boolean));
+  años.add(String(AÑO));
+  const ordenados=[...años].sort((a,b)=>b-a);
+  const actual=sel.value&&ordenados.includes(sel.value)?sel.value:String(AÑO);
+  sel.innerHTML=ordenados.map(y=>`<option value="${y}" ${y===actual?'selected':''}>${y}</option>`).join('');
+  const año=sel.value;
+  const porMes=Array.from({length:12},()=>({ing:0,eg:0}));
+  Object.values(finanzas).forEach(f=>{
+    if(!f.fecha||f.fecha.slice(0,4)!==año)return;
+    const mi=parseInt(f.fecha.slice(5,7))-1;
+    if(mi<0||mi>11)return;
+    if(f.tipo==='ingreso')porMes[mi].ing+=Number(f.monto||0);
+    else porMes[mi].eg+=Number(f.monto||0);
+  });
+  const tbody=document.getElementById('body-balance-mensual');
+  tbody.innerHTML=porMes.map((m,i)=>{
+    const bal=m.ing-m.eg;
+    return`<tr>
+      <td><strong>${MESES_FULL[i]}</strong></td>
+      <td style="color:var(--success)">${m.ing?fmt(m.ing):'—'}</td>
+      <td style="color:var(--danger)">${m.eg?fmt(m.eg):'—'}</td>
+      <td style="font-weight:700;color:${bal>=0?'var(--success)':'var(--danger)'}">${fmt(bal)}</td>
+    </tr>`;
+  }).join('');
+  const totIng=porMes.reduce((a,m)=>a+m.ing,0), totEg=porMes.reduce((a,m)=>a+m.eg,0);
+  document.getElementById('bm-tot-ing').textContent=fmt(totIng);
+  document.getElementById('bm-tot-eg').textContent=fmt(totEg);
+  const totBalEl=document.getElementById('bm-tot-bal');
+  const totBal=totIng-totEg;
+  totBalEl.textContent=fmt(totBal);
+  totBalEl.style.color=totBal>=0?'var(--success)':'var(--danger)';
 }
 
 function abrirModalMovimiento(){document.getElementById('m-fecha').value=new Date().toISOString().split('T')[0];['m-desc','m-monto'].forEach(id=>document.getElementById(id).value='');document.getElementById('modal-mov').style.display='flex';}
@@ -1147,6 +1217,129 @@ function guardarMovimiento(){
 }
 
 function eliminarMovimiento(key){if(!confirm('¿Eliminar este movimiento?'))return;db.ref('finanzas/'+key).remove();}
+
+/* IMPORTAR EXCEL */
+let impHeaders=[],impRows=[];
+const IMP_CAMPOS=[
+  {key:'nombre',label:'Nombre',required:true},
+  {key:'tel',label:'Teléfono'},
+  {key:'ip',label:'IP asignada'},
+  {key:'plan',label:'Plan / velocidad'},
+  {key:'valor',label:'Valor mensual'},
+  {key:'diapago',label:'Día de pago'},
+  {key:'fechainstal',label:'Fecha instalación'},
+  {key:'estado',label:'Estado'}
+];
+
+function abrirModalImportar(){
+  impHeaders=[];impRows=[];
+  document.getElementById('imp-file').value='';
+  document.getElementById('imp-mapeo-wrap').style.display='none';
+  document.getElementById('imp-btn-importar').style.display='none';
+  document.getElementById('modal-importar').style.display='flex';
+}
+
+function normaliza(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');}
+
+function leerArchivoImportar(ev){
+  const file=ev.target.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const data=new Uint8Array(e.target.result);
+      const wb=XLSX.read(data,{type:'array',cellDates:true});
+      const sheet=wb.Sheets[wb.SheetNames[0]];
+      const json=XLSX.utils.sheet_to_json(sheet,{header:1,defval:''});
+      if(!json.length){alert('El archivo está vacío o no se pudo leer');return;}
+      impHeaders=json[0].map(h=>String(h||'').trim());
+      impRows=json.slice(1).filter(r=>r.some(c=>String(c||'').trim()!==''));
+      if(!impRows.length){alert('No se encontraron filas de datos debajo del encabezado');return;}
+      renderMapeoImportar();
+    }catch(err){alert('No se pudo leer el archivo. Verifica que sea un Excel o CSV válido.');}
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function renderMapeoImportar(){
+  document.getElementById('imp-mapeo-wrap').style.display='block';
+  document.getElementById('imp-btn-importar').style.display='inline-flex';
+  const opciones=impHeaders.map((h,i)=>`<option value="${i}">${h||'(columna '+(i+1)+')'}</option>`).join('');
+  document.getElementById('imp-mapeo').innerHTML=IMP_CAMPOS.map(c=>
+    `<div class="form-group"><label>${c.label}${c.required?' *':''}</label>
+      <select id="map-${c.key}"><option value="-1">— No importar —</option>${opciones}</select></div>`
+  ).join('');
+  IMP_CAMPOS.forEach(c=>{
+    const idx=impHeaders.findIndex(h=>normaliza(h).includes(normaliza(c.key))||normaliza(h).includes(normaliza(c.label.split(' ')[0]))||normaliza(c.label).includes(normaliza(h))&&h);
+    const sel=document.getElementById('map-'+c.key);
+    if(idx>-1) sel.value=idx;
+    sel.addEventListener('change',renderPreviewImportar);
+  });
+  renderPreviewImportar();
+}
+
+function renderPreviewImportar(){
+  const filas=impRows.slice(0,5);
+  const campos=IMP_CAMPOS.filter(c=>Number(document.getElementById('map-'+c.key).value)>-1);
+  const tabla=document.getElementById('imp-preview');
+  tabla.innerHTML='<thead><tr>'+campos.map(c=>`<th>${c.label}</th>`).join('')+'</tr></thead><tbody>'+
+    filas.map(r=>'<tr>'+campos.map(c=>{
+      const idx=Number(document.getElementById('map-'+c.key).value);
+      const v=r[idx];
+      return `<td style="font-size:12px">${v instanceof Date?v.toLocaleDateString('es-CO'):(v!==undefined?v:'')}</td>`;
+    }).join('')+'</tr>').join('')+'</tbody>';
+  document.getElementById('imp-resumen').textContent=`${impRows.length} fila(s) detectada(s) en el archivo.`;
+}
+
+function parseFechaImportada(v){
+  if(!v&&v!==0)return'';
+  if(v instanceof Date&&!isNaN(v))return v.toISOString().split('T')[0];
+  if(typeof v==='number'){
+    const d=new Date(Math.round((v-25569)*86400*1000));
+    if(!isNaN(d))return d.toISOString().split('T')[0];
+  }
+  const s=String(v).trim();
+  let m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if(m){let[,d,mo,y]=m;if(y.length===2)y='20'+y;return`${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;}
+  m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if(m)return`${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
+  return'';
+}
+
+function importarClientesExcel(){
+  const val=(row,key)=>{
+    const sel=document.getElementById('map-'+key);
+    const idx=sel?Number(sel.value):-1;
+    return idx>-1?row[idx]:'';
+  };
+  const idxNombre=Number(document.getElementById('map-nombre').value);
+  if(idxNombre<0){alert('Debes indicar cuál columna es el Nombre del cliente');return;}
+  if(!confirm(`¿Importar ${impRows.length} cliente(s) desde el archivo? Se agregarán como nuevos, sin borrar ni reemplazar los que ya tienes.`))return;
+  let importados=0,omitidos=0;
+  impRows.forEach(row=>{
+    const nombre=String(val(row,'nombre')||'').trim();
+    if(!nombre){omitidos++;return;}
+    let estado=normaliza(val(row,'estado')||'');
+    estado=['activo','gratis','suspendido','inactivo'].includes(estado)?estado:'activo';
+    const valorRaw=String(val(row,'valor')||'0').replace(/[^0-9.,-]/g,'').replace(/\.(?=\d{3}(\D|$))/g,'').replace(',','.');
+    const cliente={
+      nombre,
+      tel:String(val(row,'tel')||'').replace(/\D/g,''),
+      ip:String(val(row,'ip')||'').trim(),
+      plan:String(val(row,'plan')||'').trim(),
+      valor:Number(valorRaw)||0,
+      diapago:Number(String(val(row,'diapago')||'').replace(/\D/g,''))||null,
+      fechainstal:parseFechaImportada(val(row,'fechainstal')),
+      estado,
+      antena:'',
+      pagos:buildPagos()
+    };
+    db.ref('clientes').push(cliente);
+    importados++;
+  });
+  cerrarModal('modal-importar');
+  alert(`Importación completa: ${importados} cliente(s) agregado(s)${omitidos?`, ${omitidos} fila(s) omitida(s) por no tener nombre`:''}.`);
+}
 
 /* WHATSAPP */
 function msgWA(c){
