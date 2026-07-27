@@ -169,7 +169,7 @@ textarea{resize:vertical;min-height:70px;line-height:1.5}
   <div class="topbar-right">
     <div class="ip-search-wrap">
       <span class="ip-search-icon">🔍</span>
-      <input class="ip-search-input" placeholder="Buscar Cliente" oninput="buscarIP(this.value)" onblur="setTimeout(ocultarIPResult,200)" autocomplete="off">
+      <input class="ip-search-input" placeholder="Buscar IP..." oninput="buscarIP(this.value)" onblur="setTimeout(ocultarIPResult,200)" autocomplete="off">
       <div class="ip-search-result" id="ip-search-result"></div>
     </div>
     <div id="sync-status" class="sync-pill load"><div class="sync-dot"></div> Conectando...</div>
@@ -282,14 +282,6 @@ textarea{resize:vertical;min-height:70px;line-height:1.5}
     </div>
     <div class="ip-grid" id="grid-rango2"></div>
   </div>
-  </div>
-  <div class="ip-map-section">
-    <div class="ip-map-header">
-      <span class="ip-range-title">192.168.50.0 / 24</span>
-      <div class="ip-range-stats" id="stats-rango2"></div>
-    </div>
-    <div class="ip-grid" id="grid-rango2"></div>
-  </div>
 </div>
 
 <!-- PAGOS -->
@@ -330,7 +322,7 @@ textarea{resize:vertical;min-height:70px;line-height:1.5}
     </table></div>
   </div>
   <div class="card"><div class="tbl-wrap"><table class="tbl">
-    <thead><tr><th>Fecha</th><th>Tipo</th><th>Descripción</th><th>Monto</th><th></th></tr></thead>
+    <thead><tr><th>Fecha</th><th>Tipo</th><th>Categoría</th><th>Descripción</th><th>Monto</th><th></th></tr></thead>
     <tbody id="body-finanzas"></tbody>
   </table></div></div>
 </div>
@@ -355,6 +347,8 @@ textarea{resize:vertical;min-height:70px;line-height:1.5}
     <div class="form-grid">
       <div class="form-group full"><label>Nombre completo</label><input id="f-nombre" placeholder="Ej: Carlos Muñoz"></div>
       <div class="form-group"><label>Teléfono (con código país)</label><input id="f-tel" placeholder="573001234567" type="tel"><span class="form-hint">Sin + ni espacios</span></div>
+      <div class="form-group"><label>Documento</label><input id="f-documento" placeholder="Cédula (opcional)"></div>
+      <div class="form-group full"><label>Dirección / vereda</label><input id="f-direccion" placeholder="Ej: Vereda El Llano"></div>
       <div class="form-group"><label>IP asignada</label><input id="f-ip" placeholder="192.168.10.x" style="font-family:var(--mono)" oninput="validarIPInput(this)"><span class="form-hint" id="f-ip-hint"></span></div>
       <div class="form-group"><label>Antena</label><select id="f-antena"></select></div>
       <div class="form-group"><label>Plan / velocidad</label><input id="f-plan" placeholder="Ej: 10 Mbps"></div>
@@ -446,6 +440,12 @@ textarea{resize:vertical;min-height:70px;line-height:1.5}
         <select id="m-tipo"><option value="ingreso">Ingreso</option><option value="egreso">Egreso</option></select>
       </div>
       <div class="form-group"><label>Fecha</label><input id="m-fecha" type="date"></div>
+      <div class="form-group full"><label>Categoría</label><input id="m-categoria" list="lista-categorias" placeholder="Ej: MATERIALES, MENSUALIDAD...">
+        <datalist id="lista-categorias">
+          <option value="MENSUALIDAD"><option value="INSTALACIONES"><option value="MATERIALES"><option value="EQUIPOS">
+          <option value="TRANSPORTE"><option value="ENERGIA"><option value="INTERNET"><option value="PRESTAMO"><option value="OTRO">
+        </datalist>
+      </div>
       <div class="form-group full"><label>Descripción</label><input id="m-desc" placeholder="Ej: Pago plan mensual junio"></div>
       <div class="form-group full"><label>Monto ($)</label><input id="m-monto" type="number" placeholder="50000"></div>
     </div>
@@ -498,18 +498,27 @@ textarea{resize:vertical;min-height:70px;line-height:1.5}
 <div class="modal-backdrop" id="modal-importar" style="display:none" onclick="bgClose(event,'modal-importar')">
   <div class="modal" style="max-width:840px" onclick="event.stopPropagation()">
     <button class="modal-close" onclick="cerrarModal('modal-importar')">×</button>
-    <h3>Importar clientes desde Excel</h3>
-    <div class="alert info" style="font-size:12px">Sube tu archivo de Excel o el exportado desde Google Sheets (.xlsx, .xls o .csv). Después indica qué columna de tu archivo corresponde a cada dato del sistema. Los clientes se agregan como nuevos; no reemplaza ni borra los que ya tienes.</div>
+    <h3>Importar todo desde tu Excel</h3>
+    <div class="alert info" style="font-size:12px">Sube tu archivo completo de Excel o el exportado desde Google Sheets. El sistema reconoce automáticamente las hojas de Clientes, Antenas, Gastos e Ingresos. Todo se agrega como información nueva; no borra ni reemplaza lo que ya tienes.</div>
     <div class="form-group full" style="margin-bottom:12px"><label>Archivo</label><input type="file" id="imp-file" accept=".xlsx,.xls,.csv" onchange="leerArchivoImportar(event)"></div>
+
+    <div id="imp-completo-wrap" style="display:none">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Se reconoció tu archivo — elige qué importar</div>
+      <div id="imp-completo-lista" style="display:flex;flex-direction:column;gap:8px"></div>
+      <div class="form-hint" id="imp-completo-resumen" style="margin-top:10px"></div>
+    </div>
+
     <div id="imp-mapeo-wrap" style="display:none">
-      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">¿Qué columna corresponde a cada dato?</div>
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">No se reconoció una hoja con el formato esperado — indica qué columna corresponde a cada dato de Clientes:</div>
       <div class="form-grid" id="imp-mapeo"></div>
       <div style="margin:16px 0 6px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Vista previa (primeras 5 filas)</div>
       <div class="tbl-wrap" style="max-height:220px"><table class="tbl" id="imp-preview"></table></div>
       <div class="form-hint" id="imp-resumen" style="margin-top:8px"></div>
     </div>
+
     <div class="form-actions">
       <button class="btn ghost" onclick="cerrarModal('modal-importar')">Cancelar</button>
+      <button class="btn" id="imp-btn-completo" style="display:none" onclick="importarTodoExcel()">Importar todo</button>
       <button class="btn" id="imp-btn-importar" style="display:none" onclick="importarClientesExcel()">Importar clientes</button>
     </div>
   </div>
@@ -790,7 +799,7 @@ function abrirModalCliente(key=null){
   editCliKey=key;
   document.getElementById('modal-cli-title').textContent=key?'Editar cliente':'Agregar cliente';
   const c=key?(clientes[key]||{}):{};
-  ['nombre','tel','ip','plan','valor','diapago','fechainstal'].forEach(id=>document.getElementById('f-'+id).value=c[id]||'');
+  ['nombre','tel','documento','direccion','ip','plan','valor','diapago','fechainstal'].forEach(id=>document.getElementById('f-'+id).value=c[id]||'');
   document.getElementById('f-estado').value=c.estado||'activo';
   document.getElementById('f-ip-hint').textContent='';
   const sel=document.getElementById('f-antena');
@@ -809,7 +818,7 @@ function guardarCliente(){
   }
   const key=editCliKey||db.ref('clientes').push().key;
   const existing=editCliKey?(clientes[editCliKey]||{}):{};
-  db.ref('clientes/'+key).set({nombre,ip,tel:document.getElementById('f-tel').value.trim(),antena:document.getElementById('f-antena').value,plan:document.getElementById('f-plan').value.trim(),valor:Number(document.getElementById('f-valor').value)||0,diapago:Number(document.getElementById('f-diapago').value)||'',fechainstal:document.getElementById('f-fechainstal').value||'',estado:document.getElementById('f-estado').value,pagos:existing.pagos||buildPagos()});
+  db.ref('clientes/'+key).set({nombre,ip,tel:document.getElementById('f-tel').value.trim(),documento:document.getElementById('f-documento').value.trim(),direccion:document.getElementById('f-direccion').value.trim(),antena:document.getElementById('f-antena').value,plan:document.getElementById('f-plan').value.trim(),valor:Number(document.getElementById('f-valor').value)||0,diapago:Number(document.getElementById('f-diapago').value)||'',fechainstal:document.getElementById('f-fechainstal').value||'',estado:document.getElementById('f-estado').value,pagos:existing.pagos||buildPagos()});
   cerrarModal('modal-cliente');
 }
 
@@ -1169,10 +1178,11 @@ function renderFinanzas(){
   bEl.textContent=fmt(bal);bEl.className='stat-val '+(bal>=0?'green':'red');
   const sorted=Object.entries(finanzas).sort((a,b)=>b[1].fecha.localeCompare(a[1].fecha));
   const tbody=document.getElementById('body-finanzas');
-  if(!sorted.length){tbody.innerHTML='<tr><td colspan="5"><div class="empty"><div class="empty-txt">Sin movimientos</div></div></td></tr>';return;}
+  if(!sorted.length){tbody.innerHTML='<tr><td colspan="6"><div class="empty"><div class="empty-txt">Sin movimientos</div></div></td></tr>';return;}
   tbody.innerHTML=sorted.map(([key,f])=>`<tr>
     <td style="font-size:12px;font-family:var(--mono)">${f.fecha}</td>
     <td><span class="badge ${f.tipo==='ingreso'?'green':'red'}">${f.tipo}</span></td>
+    <td style="font-size:12px">${f.categoria?`<span class="badge gray">${f.categoria}</span>`:'—'}</td>
     <td>${f.desc}</td>
     <td style="font-weight:700;color:${f.tipo==='ingreso'?'var(--success)':'var(--danger)'}">${f.tipo==='egreso'?'-':''}${fmt(f.monto)}</td>
     <td><button class="btn danger xs" onclick="eliminarMovimiento('${key}')">✕</button></td>
@@ -1215,19 +1225,19 @@ function renderBalanceMensual(){
   totBalEl.style.color=totBal>=0?'var(--success)':'var(--danger)';
 }
 
-function abrirModalMovimiento(){document.getElementById('m-fecha').value=new Date().toISOString().split('T')[0];['m-desc','m-monto'].forEach(id=>document.getElementById(id).value='');document.getElementById('modal-mov').style.display='flex';}
+function abrirModalMovimiento(){document.getElementById('m-fecha').value=new Date().toISOString().split('T')[0];['m-desc','m-monto','m-categoria'].forEach(id=>document.getElementById(id).value='');document.getElementById('modal-mov').style.display='flex';}
 
 function guardarMovimiento(){
   const desc=document.getElementById('m-desc').value.trim(),monto=Number(document.getElementById('m-monto').value);
   if(!desc||!monto){alert('Descripción y monto son obligatorios');return;}
-  db.ref('finanzas').push({fecha:document.getElementById('m-fecha').value,tipo:document.getElementById('m-tipo').value,desc,monto});
+  db.ref('finanzas').push({fecha:document.getElementById('m-fecha').value,tipo:document.getElementById('m-tipo').value,categoria:document.getElementById('m-categoria').value.trim(),desc,monto});
   cerrarModal('modal-mov');
 }
 
 function eliminarMovimiento(key){if(!confirm('¿Eliminar este movimiento?'))return;db.ref('finanzas/'+key).remove();}
 
 /* IMPORTAR EXCEL */
-let impHeaders=[],impRows=[];
+let impHeaders=[],impRows=[],impWB=null,impDatosDetectados={};
 const IMP_CAMPOS=[
   {key:'nombre',label:'Nombre',required:true},
   {key:'tel',label:'Teléfono'},
@@ -1238,16 +1248,66 @@ const IMP_CAMPOS=[
   {key:'fechainstal',label:'Fecha instalación'},
   {key:'estado',label:'Estado'}
 ];
+const IMP_TIPOS_INFO={
+  clientes:{label:'Clientes',icono:'👥',unidad:'cliente(s)'},
+  antenas:{label:'Antenas / equipos de red',icono:'📡',unidad:'antena(s)'},
+  gastos:{label:'Gastos (egresos)',icono:'📤',unidad:'gasto(s)'},
+  ingresos:{label:'Ingresos',icono:'📥',unidad:'ingreso(s)'}
+};
 
 function abrirModalImportar(){
-  impHeaders=[];impRows=[];
+  impHeaders=[];impRows=[];impWB=null;impDatosDetectados={};
   document.getElementById('imp-file').value='';
+  document.getElementById('imp-completo-wrap').style.display='none';
   document.getElementById('imp-mapeo-wrap').style.display='none';
+  document.getElementById('imp-btn-completo').style.display='none';
   document.getElementById('imp-btn-importar').style.display='none';
   document.getElementById('modal-importar').style.display='flex';
 }
 
-function normaliza(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');}
+function normaliza(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();}
+
+function encontrarEncabezado(json,keywords){
+  for(let i=0;i<Math.min(10,json.length);i++){
+    const fila=json[i].map(normaliza);
+    const coincidencias=keywords.filter(k=>fila.some(celda=>celda.includes(k))).length;
+    if(coincidencias>=2)return i;
+  }
+  return -1;
+}
+
+function buscarCol(headers,opciones){
+  const norm=headers.map(normaliza);
+  for(const op of opciones){
+    const idx=norm.findIndex(h=>h.includes(op));
+    if(idx>-1)return idx;
+  }
+  return -1;
+}
+
+function detectarHojas(wb){
+  const resultado={};
+  wb.SheetNames.forEach(nombreHoja=>{
+    const n=normaliza(nombreHoja);
+    const json=XLSX.utils.sheet_to_json(wb.Sheets[nombreHoja],{header:1,defval:''});
+    if(!json.length)return;
+    const armar=(hi)=>({hoja:nombreHoja,headers:json[hi].map(h=>String(h||'').trim()),filas:json.slice(hi+1).filter(r=>r.some(c=>String(c||'').trim()!==''))});
+    if(n.includes('client')&&!resultado.clientes){
+      const hi=encontrarEncabezado(json,['nombre','celular','telefono','estado','ip']);
+      if(hi>-1)resultado.clientes=armar(hi);
+    }else if(n.includes('antena')&&!resultado.antenas){
+      const hi=encontrarEncabezado(json,['nombre','ubicacion','frecuencia','ip','usuario']);
+      if(hi>-1)resultado.antenas=armar(hi);
+    }else if(n.includes('ingreso')&&!resultado.ingresos){
+      const hi=encontrarEncabezado(json,['fecha','descripcion','categoria','valor']);
+      if(hi>-1)resultado.ingresos=armar(hi);
+    }else if(n.includes('gasto')&&!resultado.gastos){
+      const hi=encontrarEncabezado(json,['fecha','descripcion','categoria','valor']);
+      if(hi>-1)resultado.gastos=armar(hi);
+    }
+  });
+  return resultado;
+}
 
 function leerArchivoImportar(ev){
   const file=ev.target.files[0];
@@ -1256,17 +1316,41 @@ function leerArchivoImportar(ev){
   reader.onload=e=>{
     try{
       const data=new Uint8Array(e.target.result);
-      const wb=XLSX.read(data,{type:'array',cellDates:true});
-      const sheet=wb.Sheets[wb.SheetNames[0]];
-      const json=XLSX.utils.sheet_to_json(sheet,{header:1,defval:''});
-      if(!json.length){alert('El archivo está vacío o no se pudo leer');return;}
-      impHeaders=json[0].map(h=>String(h||'').trim());
-      impRows=json.slice(1).filter(r=>r.some(c=>String(c||'').trim()!==''));
-      if(!impRows.length){alert('No se encontraron filas de datos debajo del encabezado');return;}
-      renderMapeoImportar();
+      impWB=XLSX.read(data,{type:'array',cellDates:true});
+      impDatosDetectados=detectarHojas(impWB);
+      document.getElementById('imp-completo-wrap').style.display='none';
+      document.getElementById('imp-mapeo-wrap').style.display='none';
+      document.getElementById('imp-btn-completo').style.display='none';
+      document.getElementById('imp-btn-importar').style.display='none';
+      if(Object.keys(impDatosDetectados).length){
+        renderModoCompleto();
+      }else{
+        const json=XLSX.utils.sheet_to_json(impWB.Sheets[impWB.SheetNames[0]],{header:1,defval:''});
+        if(!json.length){alert('El archivo está vacío o no se pudo leer');return;}
+        impHeaders=json[0].map(h=>String(h||'').trim());
+        impRows=json.slice(1).filter(r=>r.some(c=>String(c||'').trim()!==''));
+        if(!impRows.length){alert('No se encontraron filas de datos debajo del encabezado');return;}
+        renderMapeoImportar();
+      }
     }catch(err){alert('No se pudo leer el archivo. Verifica que sea un Excel o CSV válido.');}
   };
   reader.readAsArrayBuffer(file);
+}
+
+function renderModoCompleto(){
+  document.getElementById('imp-completo-wrap').style.display='block';
+  document.getElementById('imp-btn-completo').style.display='inline-flex';
+  const lista=document.getElementById('imp-completo-lista');
+  lista.innerHTML=Object.entries(impDatosDetectados).map(([tipo,info])=>{
+    const t=IMP_TIPOS_INFO[tipo];
+    return`<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg2);border-radius:8px;border:1px solid var(--border);cursor:pointer">
+      <input type="checkbox" id="imp-chk-${tipo}" checked style="width:16px;height:16px;flex-shrink:0">
+      <span style="font-size:16px">${t.icono}</span>
+      <span style="flex:1">${t.label} — hoja "${info.hoja}"</span>
+      <span class="badge blue">${info.filas.length} ${t.unidad}</span>
+    </label>`;
+  }).join('');
+  document.getElementById('imp-completo-resumen').textContent='Todo se agrega como información nueva; no se borra ni reemplaza lo que ya tienes en el sistema.';
 }
 
 function renderMapeoImportar(){
@@ -1307,11 +1391,16 @@ function parseFechaImportada(v){
     if(!isNaN(d))return d.toISOString().split('T')[0];
   }
   const s=String(v).trim();
-  let m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  let m=s.match(/^(\d{1,2})\s*[\/\-]\s*(\d{1,2})\s*[\/\-]\s*(\d{2,4})$/);
   if(m){let[,d,mo,y]=m;if(y.length===2)y='20'+y;return`${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;}
   m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
   if(m)return`${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
   return'';
+}
+
+function normalizaIP(ip){
+  const s=String(ip||'').trim();
+  return/^\d{1,3}[,.]\d{1,3}[,.]\d{1,3}[,.]\d{1,3}$/.test(s)?s.replace(/,/g,'.'):s;
 }
 
 function importarClientesExcel(){
@@ -1333,7 +1422,7 @@ function importarClientesExcel(){
     const cliente={
       nombre,
       tel:String(val(row,'tel')||'').replace(/\D/g,''),
-      ip:String(val(row,'ip')||'').trim(),
+      ip:normalizaIP(val(row,'ip')),
       plan:String(val(row,'plan')||'').trim(),
       valor:Number(valorRaw)||0,
       diapago:Number(String(val(row,'diapago')||'').replace(/\D/g,''))||null,
@@ -1347,6 +1436,119 @@ function importarClientesExcel(){
   });
   cerrarModal('modal-importar');
   alert(`Importación completa: ${importados} cliente(s) agregado(s)${omitidos?`, ${omitidos} fila(s) omitida(s) por no tener nombre`:''}.`);
+}
+
+/* IMPORTACIÓN COMPLETA (multi-hoja) */
+function importarHojaClientes(info){
+  const headers=info.headers;
+  const idx={
+    nombre:buscarCol(headers,['nombre']),
+    tel:buscarCol(headers,['celular','telefono']),
+    documento:buscarCol(headers,['documento','cedula']),
+    direccion:buscarCol(headers,['direccion']),
+    ip:buscarCol(headers,['ip']),
+    estado:buscarCol(headers,['estado'])
+  };
+  let n=0;
+  info.filas.forEach(row=>{
+    const nombre=idx.nombre>-1?String(row[idx.nombre]||'').trim():'';
+    if(!nombre)return;
+    let estado=normaliza(idx.estado>-1?row[idx.estado]:'');
+    estado=['activo','gratis','suspendido','inactivo'].includes(estado)?estado:'activo';
+    const cliente={
+      nombre,
+      tel:idx.tel>-1?String(row[idx.tel]||'').replace(/\D/g,''):'',
+      documento:idx.documento>-1?String(row[idx.documento]||'').trim():'',
+      direccion:idx.direccion>-1?String(row[idx.direccion]||'').trim():'',
+      ip:normalizaIP(idx.ip>-1?row[idx.ip]:''),
+      plan:'',
+      valor:0,
+      diapago:null,
+      fechainstal:'',
+      estado,
+      antena:'',
+      pagos:buildPagos()
+    };
+    db.ref('clientes').push(cliente);
+    n++;
+  });
+  return n;
+}
+
+function importarHojaAntenas(info){
+  const headers=info.headers;
+  const idx={
+    nombre:buscarCol(headers,['nombre']),
+    ubicacion:buscarCol(headers,['ubicacion']),
+    frecuencia:buscarCol(headers,['frecuencia']),
+    ip:buscarCol(headers,['ip']),
+    usuario:buscarCol(headers,['usuario']),
+    contrasena:buscarCol(headers,['contrasena']),
+    puente:buscarCol(headers,['puente','enlace']),
+    password:buscarCol(headers,['password'])
+  };
+  let n=0;
+  info.filas.forEach(row=>{
+    const nombre=idx.nombre>-1?String(row[idx.nombre]||'').trim():'';
+    if(!nombre)return;
+    const antena={
+      nombre,
+      ip:normalizaIP(idx.ip>-1?row[idx.ip]:''),
+      frecuencia:idx.frecuencia>-1?String(row[idx.frecuencia]||'').trim():'',
+      enlace:idx.puente>-1?String(row[idx.puente]||'').trim():'',
+      ubicacion:idx.ubicacion>-1?String(row[idx.ubicacion]||'').trim():'',
+      usuario:idx.usuario>-1?String(row[idx.usuario]||'').trim():'',
+      contrasena:idx.contrasena>-1?String(row[idx.contrasena]||'').trim():'',
+      contrasenaCx:idx.password>-1?String(row[idx.password]||'').trim():'',
+      estado:'activa'
+    };
+    db.ref('antenas').push(antena);
+    n++;
+  });
+  return n;
+}
+
+function importarHojaMovimientos(info,tipo){
+  const headers=info.headers;
+  const idx={
+    fecha:buscarCol(headers,['fecha']),
+    desc:buscarCol(headers,['descripcion']),
+    categoria:buscarCol(headers,['categoria']),
+    cantidad:buscarCol(headers,['cantidad']),
+    valor:buscarCol(headers,['valor'])
+  };
+  let n=0,ultimaFecha='';
+  info.filas.forEach(row=>{
+    const valorRaw=idx.valor>-1?row[idx.valor]:'';
+    const valor=Number(String(valorRaw).replace(/[^0-9.-]/g,''))||0;
+    if(!valor)return; // fila sin monto: era solo una nota o un corte de cuenta manual, se omite
+    let fechaTxt=idx.fecha>-1?parseFechaImportada(row[idx.fecha]):'';
+    if(fechaTxt)ultimaFecha=fechaTxt;
+    else fechaTxt=ultimaFecha||new Date().toISOString().split('T')[0];
+    let desc=idx.desc>-1?String(row[idx.desc]||'').trim():'';
+    const cantidad=idx.cantidad>-1?row[idx.cantidad]:'';
+    if(cantidad&&Number(cantidad)>1)desc+=` (x${Number(cantidad)})`;
+    if(!desc)desc=tipo==='ingreso'?'Ingreso importado':'Gasto importado';
+    const categoria=idx.categoria>-1?String(row[idx.categoria]||'').trim().toUpperCase():'';
+    db.ref('finanzas').push({fecha:fechaTxt,tipo,categoria,desc,monto:valor});
+    n++;
+  });
+  return n;
+}
+
+function importarTodoExcel(){
+  const tipos=Object.keys(impDatosDetectados).filter(t=>document.getElementById('imp-chk-'+t)?.checked);
+  if(!tipos.length){alert('Selecciona al menos un tipo de dato para importar');return;}
+  const totalFilas=tipos.reduce((a,t)=>a+impDatosDetectados[t].filas.length,0);
+  if(!confirm(`¿Importar ${tipos.map(t=>IMP_TIPOS_INFO[t].label).join(', ')}? En total son ${totalFilas} fila(s) del archivo. Se agregan como nuevas, sin borrar ni reemplazar lo que ya tienes en el sistema.`))return;
+  const resumen={};
+  if(tipos.includes('clientes'))resumen.clientes=importarHojaClientes(impDatosDetectados.clientes);
+  if(tipos.includes('antenas'))resumen.antenas=importarHojaAntenas(impDatosDetectados.antenas);
+  if(tipos.includes('gastos'))resumen.gastos=importarHojaMovimientos(impDatosDetectados.gastos,'egreso');
+  if(tipos.includes('ingresos'))resumen.ingresos=importarHojaMovimientos(impDatosDetectados.ingresos,'ingreso');
+  cerrarModal('modal-importar');
+  const partes=Object.entries(resumen).map(([k,v])=>`${IMP_TIPOS_INFO[k].label}: ${v} agregado(s)`);
+  alert('Importación completa.\n'+partes.join('\n'));
 }
 
 /* WHATSAPP */
