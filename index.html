@@ -229,6 +229,7 @@ textarea{resize:vertical;min-height:70px;line-height:1.5}
       <input class="search-bar" placeholder="Buscar nombre, IP, teléfono..." oninput="filtrarClientes(this.value)">
       <button class="btn ghost" onclick="abrirModalImportar()">📥 Importar Excel</button>
       <button class="btn danger" onclick="abrirModalBorrarTodo()">🗑️ Borrar datos</button>
+      <button class="btn ghost" onclick="corregirFechasInicio()">🔧 Corregir mora</button>
       <button class="btn" onclick="abrirModalCliente()">+ Agregar cliente</button>
     </div>
   </div>
@@ -652,6 +653,27 @@ function diasVencido(c){
   const v=new Date(AÑO,MES_ACT,parseInt(c.diapago));v.setHours(0,0,0,0);
   if(HOY<=v)return 0;
   return Math.floor((HOY-v)/(864e5));
+}
+
+function corregirFechasInicio(){
+  const candidatos=Object.entries(clientes).filter(([k,c])=>!c.fechainstal&&c.estado!=='gratis'&&c.pagos);
+  if(!candidatos.length){alert('No hay clientes sin fecha de instalación para corregir.');return;}
+  if(!confirm(`Se va a calcular la fecha de inicio de ${candidatos.length} cliente(s), usando el mes más antiguo que tenga un pago marcado (verde/rojo/abono). Esto corrige los meses en mora que no corresponden porque venían contando desde enero. ¿Continuar?`))return;
+  let ajustados=0,sinDatos=0;
+  candidatos.forEach(([key,c])=>{
+    let primero=null;
+    Object.entries(c.pagos).forEach(([k,p])=>{
+      if(!p||p.estado==='pendiente')return;
+      const[yr,mi]=k.split('-').map(Number);
+      const orden=yr*12+mi;
+      if(!primero||orden<primero.orden)primero={yr,mi,orden};
+    });
+    if(primero){
+      db.ref(`clientes/${key}/fechainstal`).set(`${primero.yr}-${String(primero.mi+1).padStart(2,'0')}-01`);
+      ajustados++;
+    }else sinDatos++;
+  });
+  alert(`Listo: se corrigió la fecha de inicio de ${ajustados} cliente(s).${sinDatos?` ${sinDatos} cliente(s) no tenían ningún mes marcado (verde/rojo) en el sistema, así que revísalos manualmente y ponles la fecha de instalación desde "Editar cliente".`:''}`);
 }
 
 function diasParaVencer(c){
@@ -1659,17 +1681,17 @@ function importarEstadosPagoColor(info){
   const json=XLSX.utils.sheet_to_json(sheet,{header:1,defval:''});
   const headers=json[info.headerRow].map(h=>String(h||''));
   const idxNombre=buscarCol(headers,['nombre']);
-  if(idxNombre<0)return{filasActualizadas:0,mesesActualizados:0,noEncontrados:0};
+  if(idxNombre<0)return{filasActualizadas:0,mesesActualizados:0,noEncontrados:0,fechasAjustadas:0};
   const mapaClientes={};
   Object.entries(clientes).forEach(([key,c])=>{mapaClientes[normalizaNombreCliente(c.nombre)]=key;});
-  let filasActualizadas=0,mesesActualizados=0,noEncontrados=0;
+  let filasActualizadas=0,mesesActualizados=0,noEncontrados=0,fechasAjustadas=0;
   for(let r=info.headerRow+1;r<json.length;r++){
     const fila=json[r];
     const nombre=String(fila[idxNombre]||'').trim();
     if(!nombre)continue;
     const key=mapaClientes[normalizaNombreCliente(nombre)];
     if(!key){noEncontrados++;continue;}
-    let tocado=false;
+    let tocado=false,primerMes=null;
     info.meses.forEach(m=>{
       const addr=XLSX.utils.encode_cell({r,c:m.col});
       const cell=sheet[addr];
@@ -1678,8 +1700,16 @@ function importarEstadosPagoColor(info){
       if(!estado)return;
       db.ref(`clientes/${key}/pagos/${m.anio}-${m.mi}`).update({estado,nota:'Importado desde Excel'});
       tocado=true;mesesActualizados++;
+      const orden=m.anio*12+m.mi;
+      if(!primerMes||orden<primerMes.orden)primerMes={anio:m.anio,mi:m.mi,orden};
     });
-    if(tocado)filasActualizadas++;
+    if(tocado){
+      filasActualizadas++;
+      if(primerMes&&clientes[key]&&!clientes[key].fechainstal){
+        db.ref(`clientes/${key}/fechainstal`).set(`${primerMes.anio}-${String(primerMes.mi+1).padStart(2,'0')}-01`);
+        fechasAjustadas++;
+      }
+    }
   }
   return{filasActualizadas,mesesActualizados,noEncontrados};
 }
@@ -1702,7 +1732,7 @@ function importarTodoExcel(){
   if(resumen.ingresos!==undefined)partes.push(`Ingresos: ${resumen.ingresos} agregado(s)`);
   if(tipos.includes('pagoscolor')){
     const r=importarEstadosPagoColor(impDatosDetectados.pagoscolor);
-    partes.push(`Estados de pago: ${r.mesesActualizados} mes(es) marcados en ${r.filasActualizadas} cliente(s)${r.noEncontrados?`, ${r.noEncontrados} cliente(s) del Excel no se encontraron por nombre en el sistema`:''}`);
+    partes.push(`Estados de pago: ${r.mesesActualizados} mes(es) marcados en ${r.filasActualizadas} cliente(s) (fecha de inicio ajustada automáticamente en ${r.fechasAjustadas})${r.noEncontrados?`, ${r.noEncontrados} cliente(s) del Excel no se encontraron por nombre en el sistema`:''}`);
   }
   alert('Importación completa.\n'+partes.join('\n'));
 }
