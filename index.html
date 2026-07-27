@@ -121,6 +121,7 @@ textarea{resize:vertical;min-height:70px;line-height:1.5}
 .alert.info{background:var(--primary-light);color:#0040CC;border-color:#b3ccff}
 .alert.warning{background:var(--warning-light);color:#92400E;border-color:#fcd34d}
 .alert.success{background:var(--success-light);color:#00785A;border-color:#6ee7c7}
+.alert.danger{background:var(--danger-light);color:#B71C1C;border-color:#f5b5b5}
 .alerta-item{display:flex;align-items:center;gap:12px;padding:11px 14px;border-bottom:1px solid var(--border)}
 .alerta-item:last-child{border-bottom:none}
 .alerta-avatar{width:34px;height:34px;border-radius:50%;background:var(--warning-light);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:#92400E;flex-shrink:0}
@@ -227,6 +228,7 @@ textarea{resize:vertical;min-height:70px;line-height:1.5}
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <input class="search-bar" placeholder="Buscar nombre, IP, teléfono..." oninput="filtrarClientes(this.value)">
       <button class="btn ghost" onclick="abrirModalImportar()">📥 Importar Excel</button>
+      <button class="btn danger" onclick="abrirModalBorrarTodo()">🗑️ Borrar datos</button>
       <button class="btn" onclick="abrirModalCliente()">+ Agregar cliente</button>
     </div>
   </div>
@@ -520,6 +522,37 @@ textarea{resize:vertical;min-height:70px;line-height:1.5}
       <button class="btn ghost" onclick="cerrarModal('modal-importar')">Cancelar</button>
       <button class="btn" id="imp-btn-completo" style="display:none" onclick="importarTodoExcel()">Importar todo</button>
       <button class="btn" id="imp-btn-importar" style="display:none" onclick="importarClientesExcel()">Importar clientes</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL BORRAR TODO -->
+<div class="modal-backdrop" id="modal-borrar-todo" style="display:none" onclick="bgClose(event,'modal-borrar-todo')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <button class="modal-close" onclick="cerrarModal('modal-borrar-todo')">×</button>
+    <h3>⚠️ Borrar datos del sistema</h3>
+    <div class="alert danger" style="font-size:12px">Esto borra la información permanentemente, no se puede deshacer. Úsalo, por ejemplo, para vaciar el sistema antes de volver a importar tu Excel y evitar que los clientes queden duplicados.</div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin:14px 0">
+      <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg2);border-radius:8px;border:1px solid var(--border);cursor:pointer">
+        <input type="checkbox" id="bt-clientes" checked style="width:16px;height:16px"><span style="flex:1">👥 Clientes (y sus pagos)</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg2);border-radius:8px;border:1px solid var(--border);cursor:pointer">
+        <input type="checkbox" id="bt-antenas" checked style="width:16px;height:16px"><span style="flex:1">📡 Antenas</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg2);border-radius:8px;border:1px solid var(--border);cursor:pointer">
+        <input type="checkbox" id="bt-receptoras" checked style="width:16px;height:16px"><span style="flex:1">📶 Receptoras</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg2);border-radius:8px;border:1px solid var(--border);cursor:pointer">
+        <input type="checkbox" id="bt-finanzas" checked style="width:16px;height:16px"><span style="flex:1">💰 Finanzas (ingresos y egresos)</span>
+      </label>
+    </div>
+    <div class="form-group full">
+      <label>Para confirmar, escribe <strong>BORRAR</strong></label>
+      <input id="bt-confirmacion" placeholder="BORRAR" oninput="document.getElementById('bt-btn-confirmar').disabled=this.value.trim()!=='BORRAR'">
+    </div>
+    <div class="form-actions">
+      <button class="btn ghost" onclick="cerrarModal('modal-borrar-todo')">Cancelar</button>
+      <button class="btn danger" id="bt-btn-confirmar" disabled onclick="ejecutarBorradoTodo()">Borrar definitivamente</button>
     </div>
   </div>
 </div>
@@ -1236,6 +1269,25 @@ function guardarMovimiento(){
 
 function eliminarMovimiento(key){if(!confirm('¿Eliminar este movimiento?'))return;db.ref('finanzas/'+key).remove();}
 
+/* BORRAR TODO */
+function abrirModalBorrarTodo(){
+  ['bt-clientes','bt-antenas','bt-receptoras','bt-finanzas'].forEach(id=>document.getElementById(id).checked=true);
+  document.getElementById('bt-confirmacion').value='';
+  document.getElementById('bt-btn-confirmar').disabled=true;
+  document.getElementById('modal-borrar-todo').style.display='flex';
+}
+
+function ejecutarBorradoTodo(){
+  if(document.getElementById('bt-confirmacion').value.trim()!=='BORRAR')return;
+  const mapa={'bt-clientes':'clientes','bt-antenas':'antenas','bt-receptoras':'receptoras','bt-finanzas':'finanzas'};
+  const seleccionados=Object.entries(mapa).filter(([id])=>document.getElementById(id).checked).map(([,ruta])=>ruta);
+  if(!seleccionados.length){alert('Selecciona al menos un tipo de dato para borrar');return;}
+  if(!confirm(`Última confirmación: ¿borrar TODO de ${seleccionados.join(', ')}? Esta acción no se puede deshacer.`))return;
+  seleccionados.forEach(ruta=>db.ref(ruta).remove());
+  cerrarModal('modal-borrar-todo');
+  alert('Listo, se borraron los datos seleccionados. Ya puedes importar tu Excel de nuevo sin que se dupliquen.');
+}
+
 /* IMPORTAR EXCEL */
 let impHeaders=[],impRows=[],impWB=null,impDatosDetectados={};
 const IMP_CAMPOS=[
@@ -1249,10 +1301,11 @@ const IMP_CAMPOS=[
   {key:'estado',label:'Estado'}
 ];
 const IMP_TIPOS_INFO={
-  clientes:{label:'Clientes',icono:'👥',unidad:'cliente(s)'},
+  clientes:{label:'Clientes',icono:'👥',unidad:'cliente(s)',hint:'Si ya importaste tus clientes antes, desmárcalo para no duplicarlos.'},
   antenas:{label:'Antenas / equipos de red',icono:'📡',unidad:'antena(s)'},
   gastos:{label:'Gastos (egresos)',icono:'📤',unidad:'gasto(s)'},
-  ingresos:{label:'Ingresos',icono:'📥',unidad:'ingreso(s)'}
+  ingresos:{label:'Ingresos',icono:'📥',unidad:'ingreso(s)'},
+  pagoscolor:{label:'Estados de pago por mes (colores)',icono:'🎨',unidad:'mes(es) marcados',hint:'Marca cada mes como pagado/en mora según el color de la celda. Empareja por nombre con los clientes que ya tienes en el sistema — no crea ingresos nuevos, para no duplicar el dinero.'}
 };
 
 function abrirModalImportar(){
@@ -1285,16 +1338,68 @@ function buscarCol(headers,opciones){
   return -1;
 }
 
+function normalizaMes(s){
+  const meses3={ene:0,feb:1,mar:2,abr:3,may:4,jun:5,jul:6,ago:7,sep:8,oct:9,nov:10,dic:11};
+  const n=normaliza(s).slice(0,3);
+  return meses3.hasOwnProperty(n)?meses3[n]:-1;
+}
+
+function detectarColumnasMes(json,headerRowIdx){
+  const header=json[headerRowIdx]||[];
+  const filaAño=headerRowIdx>0?(json[headerRowIdx-1]||[]):[];
+  const meses=[];
+  let añoActual=null;
+  for(let c=0;c<header.length;c++){
+    const mi=normalizaMes(header[c]);
+    if(mi<0)continue;
+    const etiqueta=String(filaAño[c]||'').match(/\d{4}/);
+    if(etiqueta)añoActual=Number(etiqueta[0]);
+    meses.push({col:c,mi,anio:añoActual||AÑO});
+  }
+  return meses;
+}
+
+function clasificarColorPago(rgb){
+  if(!rgb||rgb.length<6)return null;
+  const hex=rgb.slice(-6);
+  const r=parseInt(hex.slice(0,2),16),g=parseInt(hex.slice(2,4),16),b=parseInt(hex.slice(4,6),16);
+  if(isNaN(r)||isNaN(g)||isNaN(b))return null;
+  if(g-r>60&&g-b>60)return'pagado';
+  if(r-g>60&&r-b>60)return'mora';
+  if(r>180&&g>100&&g<210&&b<100)return'abono';
+  return null; // grises, blancos u otros colores no se tocan
+}
+
+function contarCeldasColorEnSheet(sheet,json,headerRowIdx,meses){
+  let n=0;
+  for(let r=headerRowIdx+1;r<json.length;r++){
+    meses.forEach(m=>{
+      const addr=XLSX.utils.encode_cell({r,c:m.col});
+      const cell=sheet[addr];
+      const rgb=cell&&cell.s&&cell.s.fgColor&&cell.s.fgColor.rgb;
+      if(clasificarColorPago(rgb))n++;
+    });
+  }
+  return n;
+}
+
 function detectarHojas(wb){
   const resultado={};
   wb.SheetNames.forEach(nombreHoja=>{
     const n=normaliza(nombreHoja);
     const json=XLSX.utils.sheet_to_json(wb.Sheets[nombreHoja],{header:1,defval:''});
     if(!json.length)return;
-    const armar=(hi)=>({hoja:nombreHoja,headers:json[hi].map(h=>String(h||'').trim()),filas:json.slice(hi+1).filter(r=>r.some(c=>String(c||'').trim()!==''))});
+    const armar=(hi)=>({hoja:nombreHoja,headerRow:hi,headers:json[hi].map(h=>String(h||'').trim()),filas:json.slice(hi+1).filter(r=>r.some(c=>String(c||'').trim()!==''))});
     if(n.includes('client')&&!resultado.clientes){
       const hi=encontrarEncabezado(json,['nombre','celular','telefono','estado','ip']);
-      if(hi>-1)resultado.clientes=armar(hi);
+      if(hi>-1){
+        resultado.clientes=armar(hi);
+        const meses=detectarColumnasMes(json,hi);
+        if(meses.length){
+          const cantidad=contarCeldasColorEnSheet(wb.Sheets[nombreHoja],json,hi,meses);
+          if(cantidad>0)resultado.pagoscolor={hoja:nombreHoja,headerRow:hi,meses,cantidad};
+        }
+      }
     }else if(n.includes('antena')&&!resultado.antenas){
       const hi=encontrarEncabezado(json,['nombre','ubicacion','frecuencia','ip','usuario']);
       if(hi>-1)resultado.antenas=armar(hi);
@@ -1316,7 +1421,7 @@ function leerArchivoImportar(ev){
   reader.onload=e=>{
     try{
       const data=new Uint8Array(e.target.result);
-      impWB=XLSX.read(data,{type:'array',cellDates:true});
+      impWB=XLSX.read(data,{type:'array',cellDates:true,cellStyles:true});
       impDatosDetectados=detectarHojas(impWB);
       document.getElementById('imp-completo-wrap').style.display='none';
       document.getElementById('imp-mapeo-wrap').style.display='none';
@@ -1343,11 +1448,15 @@ function renderModoCompleto(){
   const lista=document.getElementById('imp-completo-lista');
   lista.innerHTML=Object.entries(impDatosDetectados).map(([tipo,info])=>{
     const t=IMP_TIPOS_INFO[tipo];
-    return`<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg2);border-radius:8px;border:1px solid var(--border);cursor:pointer">
-      <input type="checkbox" id="imp-chk-${tipo}" checked style="width:16px;height:16px;flex-shrink:0">
-      <span style="font-size:16px">${t.icono}</span>
-      <span style="flex:1">${t.label} — hoja "${info.hoja}"</span>
-      <span class="badge blue">${info.filas.length} ${t.unidad}</span>
+    const cantidad=info.filas?info.filas.length:info.cantidad;
+    return`<label style="display:flex;flex-direction:column;gap:4px;padding:10px 12px;background:var(--bg2);border-radius:8px;border:1px solid var(--border);cursor:pointer">
+      <div style="display:flex;align-items:center;gap:10px">
+        <input type="checkbox" id="imp-chk-${tipo}" checked style="width:16px;height:16px;flex-shrink:0">
+        <span style="font-size:16px">${t.icono}</span>
+        <span style="flex:1">${t.label} — hoja "${info.hoja}"</span>
+        <span class="badge blue">${cantidad} ${t.unidad}</span>
+      </div>
+      ${t.hint?`<div style="font-size:11px;color:var(--muted);margin-left:42px">${t.hint}</div>`:''}
     </label>`;
   }).join('');
   document.getElementById('imp-completo-resumen').textContent='Todo se agrega como información nueva; no se borra ni reemplaza lo que ya tienes en el sistema.';
@@ -1536,18 +1645,58 @@ function importarHojaMovimientos(info,tipo){
   return n;
 }
 
+function normalizaNombreCliente(s){return normaliza(s).replace(/\s+/g,' ').trim();}
+
+function importarEstadosPagoColor(info){
+  const sheet=impWB.Sheets[info.hoja];
+  const json=XLSX.utils.sheet_to_json(sheet,{header:1,defval:''});
+  const headers=json[info.headerRow].map(h=>String(h||''));
+  const idxNombre=buscarCol(headers,['nombre']);
+  if(idxNombre<0)return{filasActualizadas:0,mesesActualizados:0,noEncontrados:0};
+  const mapaClientes={};
+  Object.entries(clientes).forEach(([key,c])=>{mapaClientes[normalizaNombreCliente(c.nombre)]=key;});
+  let filasActualizadas=0,mesesActualizados=0,noEncontrados=0;
+  for(let r=info.headerRow+1;r<json.length;r++){
+    const fila=json[r];
+    const nombre=String(fila[idxNombre]||'').trim();
+    if(!nombre)continue;
+    const key=mapaClientes[normalizaNombreCliente(nombre)];
+    if(!key){noEncontrados++;continue;}
+    let tocado=false;
+    info.meses.forEach(m=>{
+      const addr=XLSX.utils.encode_cell({r,c:m.col});
+      const cell=sheet[addr];
+      const rgb=cell&&cell.s&&cell.s.fgColor&&cell.s.fgColor.rgb;
+      const estado=clasificarColorPago(rgb);
+      if(!estado)return;
+      db.ref(`clientes/${key}/pagos/${m.anio}-${m.mi}`).update({estado,nota:'Importado desde Excel'});
+      tocado=true;mesesActualizados++;
+    });
+    if(tocado)filasActualizadas++;
+  }
+  return{filasActualizadas,mesesActualizados,noEncontrados};
+}
+
 function importarTodoExcel(){
   const tipos=Object.keys(impDatosDetectados).filter(t=>document.getElementById('imp-chk-'+t)?.checked);
   if(!tipos.length){alert('Selecciona al menos un tipo de dato para importar');return;}
-  const totalFilas=tipos.reduce((a,t)=>a+impDatosDetectados[t].filas.length,0);
-  if(!confirm(`¿Importar ${tipos.map(t=>IMP_TIPOS_INFO[t].label).join(', ')}? En total son ${totalFilas} fila(s) del archivo. Se agregan como nuevas, sin borrar ni reemplazar lo que ya tienes en el sistema.`))return;
+  const totalFilas=tipos.reduce((a,t)=>a+(impDatosDetectados[t].filas?impDatosDetectados[t].filas.length:impDatosDetectados[t].cantidad),0);
+  if(!confirm(`¿Importar ${tipos.map(t=>IMP_TIPOS_INFO[t].label).join(', ')}? En total son ${totalFilas} fila(s)/celda(s) del archivo. Se agrega como información nueva, sin borrar lo que ya tienes en el sistema.`))return;
   const resumen={};
   if(tipos.includes('clientes'))resumen.clientes=importarHojaClientes(impDatosDetectados.clientes);
   if(tipos.includes('antenas'))resumen.antenas=importarHojaAntenas(impDatosDetectados.antenas);
   if(tipos.includes('gastos'))resumen.gastos=importarHojaMovimientos(impDatosDetectados.gastos,'egreso');
   if(tipos.includes('ingresos'))resumen.ingresos=importarHojaMovimientos(impDatosDetectados.ingresos,'ingreso');
   cerrarModal('modal-importar');
-  const partes=Object.entries(resumen).map(([k,v])=>`${IMP_TIPOS_INFO[k].label}: ${v} agregado(s)`);
+  const partes=[];
+  if(resumen.clientes!==undefined)partes.push(`Clientes: ${resumen.clientes} agregado(s)`);
+  if(resumen.antenas!==undefined)partes.push(`Antenas: ${resumen.antenas} agregado(s)`);
+  if(resumen.gastos!==undefined)partes.push(`Gastos: ${resumen.gastos} agregado(s)`);
+  if(resumen.ingresos!==undefined)partes.push(`Ingresos: ${resumen.ingresos} agregado(s)`);
+  if(tipos.includes('pagoscolor')){
+    const r=importarEstadosPagoColor(impDatosDetectados.pagoscolor);
+    partes.push(`Estados de pago: ${r.mesesActualizados} mes(es) marcados en ${r.filasActualizadas} cliente(s)${r.noEncontrados?`, ${r.noEncontrados} cliente(s) del Excel no se encontraron por nombre en el sistema`:''}`);
+  }
   alert('Importación completa.\n'+partes.join('\n'));
 }
 
