@@ -284,6 +284,13 @@ textarea{resize:vertical;min-height:70px;line-height:1.5}
     </div>
     <div class="ip-grid" id="grid-rango2"></div>
   </div>
+  <div class="ip-map-section">
+    <div class="ip-map-header">
+      <span class="ip-range-title">192.168.50.0 / 24</span>
+      <div class="ip-range-stats" id="stats-rango3"></div>
+    </div>
+    <div class="ip-grid" id="grid-rango3"></div>
+  </div>
 </div>
 
 <!-- PAGOS -->
@@ -579,7 +586,7 @@ const AÑO_ANT=AÑO-1;
 const HOY=new Date(); HOY.setHours(0,0,0,0);
 const MESES=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 const MESES_FULL=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-const IP_RANGOS=[{prefijo:'192.168.10',inicio:1,fin:254},{prefijo:'172.22.0',inicio:1,fin:254}];
+const IP_RANGOS=[{prefijo:'192.168.10',inicio:1,fin:254},{prefijo:'172.22.0',inicio:1,fin:254},{prefijo:'192.168.50',inicio:1,fin:254}];
 
 function setSyncStatus(s){
   const el=document.getElementById('sync-status');
