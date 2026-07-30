@@ -436,7 +436,7 @@ textarea{resize:vertical;min-height:70px;line-height:1.5}
       </div>
       <div class="form-group full"><label>Fecha de pago</label><input id="pm-fecha" type="date"></div>
       <div class="form-group full"><label>¿Quién recibió el pago?</label>
-        <select id="pm-receptor"><option value="">— Sin asignar —</option><option value="Yo">Yo</option><option value="Papá">Papá</option><option value="Otro">Otro</option></select>
+        <select id="pm-receptor"><option value="">— Sin asignar —</option><option value="Alexander">Alexander</option><option value="Carlos">Carlos</option><option value="Otro">Otro</option></select>
       </div>
       <div class="form-group full"><label>Nota / observación</label>
         <textarea id="pm-nota" placeholder="Ej: Abonó $20.000, queda pendiente $30.000. Pagará el viernes..."></textarea>
@@ -461,7 +461,7 @@ textarea{resize:vertical;min-height:70px;line-height:1.5}
       </div>
       <div class="form-group"><label>Fecha</label><input id="m-fecha" type="date"></div>
       <div class="form-group"><label>¿Quién recibe/paga?</label>
-        <select id="m-receptor"><option value="">— Sin asignar —</option><option value="Yo">Yo</option><option value="Papá">Papá</option><option value="Otro">Otro</option></select>
+        <select id="m-receptor"><option value="">— Sin asignar —</option><option value="Alexander">Alexander</option><option value="Carlos">Carlos</option><option value="Otro">Otro</option></select>
       </div>
       <div class="form-group full"><label>Categoría</label><input id="m-categoria" list="lista-categorias" placeholder="Ej: MATERIALES, MENSUALIDAD...">
         <datalist id="lista-categorias">
@@ -1254,7 +1254,7 @@ function renderFinanzas(){
   const bEl=document.getElementById('fin-bal');
   bEl.textContent=fmt(bal);bEl.className='stat-val '+(bal>=0?'green':'red');
   const ingresos=arr.filter(f=>f.tipo==='ingreso');
-  const porReceptor={Yo:0,'Papá':0,Otro:0,'Sin asignar':0};
+  const porReceptor={Alexander:0,Carlos:0,Otro:0,'Sin asignar':0};
   ingresos.forEach(f=>{const r=f.receptor&&porReceptor.hasOwnProperty(f.receptor)?f.receptor:'Sin asignar';porReceptor[r]+=Number(f.monto||0);});
   document.getElementById('stats-receptores').innerHTML=Object.entries(porReceptor).map(([r,v])=>
     `<div class="stat-card"><div class="stat-label">${r}</div><div class="stat-val green">${fmt(v)}</div></div>`
