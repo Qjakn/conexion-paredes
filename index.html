@@ -314,18 +314,34 @@ textarea{resize:vertical;min-height:70px;line-height:1.5}
 <div class="panel" id="p-finanzas">
   <div class="sec-header">
     <span class="sec-title">Ingresos y egresos</span>
-    <button class="btn" onclick="abrirModalMovimiento()">+ Registrar movimiento</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn ghost" onclick="abrirModalCierre()">🔒 Cerrar cuentas</button>
+      <button class="btn" onclick="abrirModalMovimiento()">+ Registrar movimiento</button>
+    </div>
   </div>
+  <div class="form-hint" id="fin-periodo-txt" style="margin-bottom:10px"></div>
   <div class="stats" style="grid-template-columns:repeat(3,1fr)">
-    <div class="stat-card"><div class="stat-label">Total ingresos</div><div class="stat-val green" id="fin-ing">$0</div></div>
-    <div class="stat-card"><div class="stat-label">Total egresos</div><div class="stat-val red" id="fin-eg">$0</div></div>
-    <div class="stat-card"><div class="stat-label">Balance</div><div class="stat-val blue" id="fin-bal">$0</div></div>
+    <div class="stat-card"><div class="stat-label">Ingresos del periodo actual</div><div class="stat-val green" id="fin-ing">$0</div></div>
+    <div class="stat-card"><div class="stat-label">Egresos del periodo actual</div><div class="stat-val red" id="fin-eg">$0</div></div>
+    <div class="stat-card"><div class="stat-label">Balance del periodo actual</div><div class="stat-val blue" id="fin-bal">$0</div></div>
   </div>
   <div class="card">
     <div class="sec-header" style="padding:14px 14px 0">
-      <span class="sec-title">Ingresos por quién recibe</span>
+      <span class="sec-title">Caja por persona — periodo actual</span>
     </div>
-    <div class="stats" style="grid-template-columns:repeat(3,1fr);padding:0 14px 14px" id="stats-receptores"></div>
+    <div class="tbl-wrap"><table class="tbl">
+      <thead><tr><th>Persona</th><th>Ingresos</th><th>Egresos</th><th>Debería tener</th></tr></thead>
+      <tbody id="body-receptores"></tbody>
+    </table></div>
+  </div>
+  <div class="card" id="card-historial-cierres" style="display:none">
+    <div class="sec-header" style="padding:14px 14px 0">
+      <span class="sec-title">Historial de cierres</span>
+    </div>
+    <div class="tbl-wrap"><table class="tbl">
+      <thead><tr><th>Cierre</th><th>Etiqueta</th><th>Ingresos</th><th>Egresos</th><th>Balance</th><th>Alexander</th><th>Carlos</th><th>Otro</th></tr></thead>
+      <tbody id="body-cierres"></tbody>
+    </table></div>
   </div>
   <div class="card">
     <div class="sec-header" style="padding:14px 14px 0">
@@ -338,10 +354,16 @@ textarea{resize:vertical;min-height:70px;line-height:1.5}
       <tfoot><tr style="background:var(--bg2)"><td style="font-weight:700">Total año</td><td id="bm-tot-ing" style="font-weight:700;color:var(--success)"></td><td id="bm-tot-eg" style="font-weight:700;color:var(--danger)"></td><td id="bm-tot-bal" style="font-weight:700"></td></tr></tfoot>
     </table></div>
   </div>
-  <div class="card"><div class="tbl-wrap"><table class="tbl">
-    <thead><tr><th>Fecha</th><th>Tipo</th><th>Categoría</th><th>Recibe/Paga</th><th>Descripción</th><th>Monto</th><th></th></tr></thead>
-    <tbody id="body-finanzas"></tbody>
-  </table></div></div>
+  <div class="card">
+    <div class="sec-header" style="padding:14px 14px 0">
+      <span class="sec-title">Historial completo de movimientos</span>
+    </div>
+    <div class="form-hint" style="padding:0 14px 10px">Aquí queda todo, de siempre — sirve como respaldo aunque ya hayas hecho un cierre.</div>
+    <div class="tbl-wrap"><table class="tbl">
+      <thead><tr><th>Fecha</th><th>Tipo</th><th>Categoría</th><th>Recibe/Paga</th><th>Descripción</th><th>Monto</th><th></th></tr></thead>
+      <tbody id="body-finanzas"></tbody>
+    </table></div>
+  </div>
 </div>
 
 <!-- WHATSAPP -->
@@ -547,6 +569,24 @@ textarea{resize:vertical;min-height:70px;line-height:1.5}
   </div>
 </div>
 
+<!-- MODAL CERRAR CUENTAS -->
+<div class="modal-backdrop" id="modal-cierre" style="display:none" onclick="bgClose(event,'modal-cierre')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <button class="modal-close" onclick="cerrarModal('modal-cierre')">×</button>
+    <h3>🔒 Cerrar cuentas del periodo</h3>
+    <div class="alert info" style="font-size:12px">Esto guarda un resumen de todo lo registrado desde el último cierre (o desde el inicio, si es el primero) y arranca el conteo del periodo actual desde cero. <strong>No borra ni oculta ningún movimiento</strong> — todo tu historial sigue completo abajo en "Historial completo de movimientos", como respaldo por si algún cliente dice que ya pagó.</div>
+    <div id="cierre-resumen"></div>
+    <div class="form-grid" style="margin-top:12px">
+      <div class="form-group"><label>Fecha de cierre</label><input id="cr-fecha" type="date"></div>
+      <div class="form-group full"><label>Etiqueta (opcional)</label><input id="cr-etiqueta" placeholder="Ej: Julio 2026"></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn ghost" onclick="cerrarModal('modal-cierre')">Cancelar</button>
+      <button class="btn success" onclick="confirmarCierre()">Confirmar cierre</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL BORRAR TODO -->
 <div class="modal-backdrop" id="modal-borrar-todo" style="display:none" onclick="bgClose(event,'modal-borrar-todo')">
   <div class="modal" onclick="event.stopPropagation()">
@@ -593,7 +633,7 @@ firebase.initializeApp({
 });
 const db=firebase.database();
 
-let clientes={},antenas={},receptoras={},finanzas={};
+let clientes={},antenas={},receptoras={},finanzas={},cierres={};
 let editCliKey=null,editAntenaKey=null,editReceptoraKey=null,editMovKey=null,pagoMesKey=null,pagoMesIdx=null,alertasFiltro='semana';
 const AÑO=new Date().getFullYear(), MES_ACT=new Date().getMonth();
 const AÑO_ANT=AÑO-1;
@@ -613,6 +653,7 @@ db.ref('clientes').on('value',s=>{clientes=s.val()||{};setSyncStatus('ok');refre
 db.ref('antenas').on('value', s=>{antenas=s.val()||{};refreshCurrentPanel();});
 db.ref('receptoras').on('value',s=>{receptoras=s.val()||{};refreshCurrentPanel();});
 db.ref('finanzas').on('value',s=>{finanzas=s.val()||{};refreshCurrentPanel();});
+db.ref('cierres').on('value',s=>{cierres=s.val()||{};refreshCurrentPanel();});
 
 const fmt=n=>'$'+Number(n||0).toLocaleString('es-CO');
 
@@ -1244,21 +1285,46 @@ function guardarPagoMes(){
 }
 
 /* FINANZAS */
+function ultimoCierre(){
+  const arr=Object.values(cierres).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  return arr.length?arr[arr.length-1]:null;
+}
+
+function movimientosPeriodoActual(){
+  const uc=ultimoCierre();
+  return Object.entries(finanzas).filter(([k,f])=>!uc||f.fecha>uc.fecha);
+}
+
+function calcularResumen(movs){
+  const ing=movs.filter(([k,f])=>f.tipo==='ingreso').reduce((a,[k,f])=>a+Number(f.monto||0),0);
+  const eg=movs.filter(([k,f])=>f.tipo==='egreso').reduce((a,[k,f])=>a+Number(f.monto||0),0);
+  const porReceptor={Alexander:{ing:0,eg:0},Carlos:{ing:0,eg:0},Otro:{ing:0,eg:0},'Sin asignar':{ing:0,eg:0}};
+  movs.forEach(([k,f])=>{
+    const r=f.receptor&&porReceptor.hasOwnProperty(f.receptor)?f.receptor:'Sin asignar';
+    if(f.tipo==='ingreso')porReceptor[r].ing+=Number(f.monto||0);
+    else porReceptor[r].eg+=Number(f.monto||0);
+  });
+  return{ing,eg,bal:ing-eg,porReceptor};
+}
+
 function renderFinanzas(){
-  const arr=Object.values(finanzas);
-  const ing=arr.filter(f=>f.tipo==='ingreso').reduce((a,b)=>a+Number(b.monto),0);
-  const eg=arr.filter(f=>f.tipo==='egreso').reduce((a,b)=>a+Number(b.monto),0);
-  document.getElementById('fin-ing').textContent=fmt(ing);
-  document.getElementById('fin-eg').textContent=fmt(eg);
-  const bal=ing-eg;
+  const uc=ultimoCierre();
+  document.getElementById('fin-periodo-txt').textContent=uc?`Mostrando el periodo actual: movimientos desde el ${uc.fecha} (fecha de tu último cierre "${uc.etiqueta||'sin etiqueta'}"). Todo lo anterior sigue disponible abajo, en el historial completo.`:'Mostrando todos los movimientos (todavía no has hecho ningún cierre).';
+  const resumen=calcularResumen(movimientosPeriodoActual());
+  document.getElementById('fin-ing').textContent=fmt(resumen.ing);
+  document.getElementById('fin-eg').textContent=fmt(resumen.eg);
   const bEl=document.getElementById('fin-bal');
-  bEl.textContent=fmt(bal);bEl.className='stat-val '+(bal>=0?'green':'red');
-  const ingresos=arr.filter(f=>f.tipo==='ingreso');
-  const porReceptor={Alexander:0,Carlos:0,Otro:0,'Sin asignar':0};
-  ingresos.forEach(f=>{const r=f.receptor&&porReceptor.hasOwnProperty(f.receptor)?f.receptor:'Sin asignar';porReceptor[r]+=Number(f.monto||0);});
-  document.getElementById('stats-receptores').innerHTML=Object.entries(porReceptor).map(([r,v])=>
-    `<div class="stat-card"><div class="stat-label">${r}</div><div class="stat-val green">${fmt(v)}</div></div>`
-  ).join('');
+  bEl.textContent=fmt(resumen.bal);bEl.className='stat-val '+(resumen.bal>=0?'green':'red');
+  document.getElementById('body-receptores').innerHTML=Object.entries(resumen.porReceptor).map(([r,v])=>{
+    const saldo=v.ing-v.eg;
+    return`<tr>
+      <td style="font-weight:700">${r}</td>
+      <td style="color:var(--success)">${v.ing?fmt(v.ing):'—'}</td>
+      <td style="color:var(--danger)">${v.eg?fmt(v.eg):'—'}</td>
+      <td style="font-weight:700;color:${saldo>=0?'var(--success)':'var(--danger)'}">${fmt(saldo)}</td>
+    </tr>`;
+  }).join('');
+  renderHistorialCierres();
   const sorted=Object.entries(finanzas).sort((a,b)=>b[1].fecha.localeCompare(a[1].fecha));
   const tbody=document.getElementById('body-finanzas');
   if(!sorted.length){tbody.innerHTML='<tr><td colspan="7"><div class="empty"><div class="empty-txt">Sin movimientos</div></div></td></tr>';return;}
@@ -1272,6 +1338,55 @@ function renderFinanzas(){
     <td><button class="btn ghost xs" onclick="abrirModalMovimiento('${key}')">✎</button> <button class="btn danger xs" onclick="eliminarMovimiento('${key}')">✕</button></td>
   </tr>`).join('');
   renderBalanceMensual();
+}
+
+function renderHistorialCierres(){
+  const arr=Object.entries(cierres).sort((a,b)=>b[1].fecha.localeCompare(a[1].fecha));
+  document.getElementById('card-historial-cierres').style.display=arr.length?'block':'none';
+  document.getElementById('body-cierres').innerHTML=arr.map(([key,c])=>{
+    const pr=c.porReceptor||{};
+    const saldoDe=n=>pr[n]?fmt((pr[n].ing||0)-(pr[n].eg||0)):'—';
+    return`<tr>
+      <td style="font-size:12px;font-family:var(--mono)">${c.fecha}</td>
+      <td>${c.etiqueta||'—'}</td>
+      <td style="color:var(--success)">${fmt(c.ingresos)}</td>
+      <td style="color:var(--danger)">${fmt(c.egresos)}</td>
+      <td style="font-weight:700;color:${c.balance>=0?'var(--success)':'var(--danger)'}">${fmt(c.balance)}</td>
+      <td>${saldoDe('Alexander')}</td>
+      <td>${saldoDe('Carlos')}</td>
+      <td>${saldoDe('Otro')}</td>
+    </tr>`;
+  }).join('');
+}
+
+function abrirModalCierre(){
+  const movs=movimientosPeriodoActual();
+  if(!movs.length){alert('No hay movimientos en el periodo actual para cerrar.');return;}
+  const r=calcularResumen(movs);
+  document.getElementById('cierre-resumen').innerHTML=`
+    <div class="saldo-box">
+      <div class="saldo-row"><span>Movimientos incluidos</span><span>${movs.length}</span></div>
+      <div class="saldo-row"><span>Ingresos</span><span style="color:var(--success)">${fmt(r.ing)}</span></div>
+      <div class="saldo-row"><span>Egresos</span><span style="color:var(--danger)">${fmt(r.eg)}</span></div>
+      <div class="saldo-row"><span>Balance</span><span style="color:${r.bal>=0?'var(--success)':'var(--danger)'}">${fmt(r.bal)}</span></div>
+      ${Object.entries(r.porReceptor).map(([n,v])=>`<div class="saldo-row"><span>${n} debería tener</span><span>${fmt(v.ing-v.eg)}</span></div>`).join('')}
+    </div>`;
+  document.getElementById('cr-fecha').value=new Date().toISOString().split('T')[0];
+  document.getElementById('cr-etiqueta').value='';
+  document.getElementById('modal-cierre').style.display='flex';
+}
+
+function confirmarCierre(){
+  const fecha=document.getElementById('cr-fecha').value;
+  if(!fecha){alert('Elige una fecha de cierre');return;}
+  const uc=ultimoCierre();
+  if(uc&&fecha<uc.fecha){alert(`La fecha de cierre debe ser igual o posterior a tu último cierre (${uc.fecha}).`);return;}
+  const etiqueta=document.getElementById('cr-etiqueta').value.trim();
+  const r=calcularResumen(movimientosPeriodoActual());
+  if(!confirm(`¿Confirmar el cierre con fecha ${fecha}? Vas a poder seguir viendo todo el historial, esto solo guarda el resumen y reinicia el conteo del periodo actual.`))return;
+  db.ref('cierres').push({fecha,etiqueta,ingresos:r.ing,egresos:r.eg,balance:r.bal,porReceptor:r.porReceptor,creado:new Date().toISOString()});
+  cerrarModal('modal-cierre');
+  alert('Cierre guardado. El periodo actual arranca de nuevo desde hoy, y este cierre queda disponible en el historial.');
 }
 
 function renderBalanceMensual(){
