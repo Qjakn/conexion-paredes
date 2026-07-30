@@ -454,7 +454,7 @@ textarea{resize:vertical;min-height:70px;line-height:1.5}
 <div class="modal-backdrop" id="modal-mov" style="display:none" onclick="bgClose(event,'modal-mov')">
   <div class="modal" onclick="event.stopPropagation()">
     <button class="modal-close" onclick="cerrarModal('modal-mov')">×</button>
-    <h3>Registrar movimiento</h3>
+    <h3 id="modal-mov-titulo">Registrar movimiento</h3>
     <div class="form-grid">
       <div class="form-group"><label>Tipo</label>
         <select id="m-tipo"><option value="ingreso">Ingreso</option><option value="egreso">Egreso</option></select>
@@ -594,7 +594,7 @@ firebase.initializeApp({
 const db=firebase.database();
 
 let clientes={},antenas={},receptoras={},finanzas={};
-let editCliKey=null,editAntenaKey=null,editReceptoraKey=null,pagoMesKey=null,pagoMesIdx=null,alertasFiltro='semana';
+let editCliKey=null,editAntenaKey=null,editReceptoraKey=null,editMovKey=null,pagoMesKey=null,pagoMesIdx=null,alertasFiltro='semana';
 const AÑO=new Date().getFullYear(), MES_ACT=new Date().getMonth();
 const AÑO_ANT=AÑO-1;
 const HOY=new Date(); HOY.setHours(0,0,0,0);
@@ -1269,7 +1269,7 @@ function renderFinanzas(){
     <td style="font-size:12px">${f.receptor?`<span class="badge blue">${f.receptor}</span>`:'—'}</td>
     <td>${f.desc}</td>
     <td style="font-weight:700;color:${f.tipo==='ingreso'?'var(--success)':'var(--danger)'}">${f.tipo==='egreso'?'-':''}${fmt(f.monto)}</td>
-    <td><button class="btn danger xs" onclick="eliminarMovimiento('${key}')">✕</button></td>
+    <td><button class="btn ghost xs" onclick="abrirModalMovimiento('${key}')">✎</button> <button class="btn danger xs" onclick="eliminarMovimiento('${key}')">✕</button></td>
   </tr>`).join('');
   renderBalanceMensual();
 }
@@ -1309,12 +1309,25 @@ function renderBalanceMensual(){
   totBalEl.style.color=totBal>=0?'var(--success)':'var(--danger)';
 }
 
-function abrirModalMovimiento(){document.getElementById('m-fecha').value=new Date().toISOString().split('T')[0];['m-desc','m-monto','m-categoria','m-receptor'].forEach(id=>document.getElementById(id).value='');document.getElementById('modal-mov').style.display='flex';}
+function abrirModalMovimiento(key=null){
+  editMovKey=key;
+  const f=key?finanzas[key]:null;
+  document.getElementById('modal-mov-titulo').textContent=key?'Editar movimiento':'Registrar movimiento';
+  document.getElementById('m-tipo').value=f?f.tipo:'ingreso';
+  document.getElementById('m-fecha').value=f?f.fecha:new Date().toISOString().split('T')[0];
+  document.getElementById('m-categoria').value=f?(f.categoria||''):'';
+  document.getElementById('m-receptor').value=f?(f.receptor||''):'';
+  document.getElementById('m-desc').value=f?f.desc:'';
+  document.getElementById('m-monto').value=f?f.monto:'';
+  document.getElementById('modal-mov').style.display='flex';
+}
 
 function guardarMovimiento(){
   const desc=document.getElementById('m-desc').value.trim(),monto=Number(document.getElementById('m-monto').value);
   if(!desc||!monto){alert('Descripción y monto son obligatorios');return;}
-  db.ref('finanzas').push({fecha:document.getElementById('m-fecha').value,tipo:document.getElementById('m-tipo').value,categoria:document.getElementById('m-categoria').value.trim(),receptor:document.getElementById('m-receptor').value,desc,monto});
+  const datos={fecha:document.getElementById('m-fecha').value,tipo:document.getElementById('m-tipo').value,categoria:document.getElementById('m-categoria').value.trim(),receptor:document.getElementById('m-receptor').value,desc,monto};
+  if(editMovKey) db.ref('finanzas/'+editMovKey).set(datos);
+  else db.ref('finanzas').push(datos);
   cerrarModal('modal-mov');
 }
 
