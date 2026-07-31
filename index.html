@@ -1211,9 +1211,10 @@ function renderPagosDetalle(){
             <div class="mes-nombre">${m}</div>
             <div class="mes-estado-txt">—</div>
           </div>`;
-          return`<div class="mes-card ${est}" onclick="${future?'':(`abrirModalPagoMes('${key}',${mi},${pagoAño})`)}" style="${future?'opacity:.45;cursor:default':''}" title="${MESES_FULL[mi]} ${pagoAño}${p.nota?' — '+p.nota:''}">
+          const futuroPendiente=future&&est==='pendiente';
+          return`<div class="mes-card ${est}" onclick="abrirModalPagoMes('${key}',${mi},${pagoAño})" style="${futuroPendiente?'opacity:.55':''}" title="${MESES_FULL[mi]} ${pagoAño}${future?' (aún no vence — puedes registrar pago adelantado)':''}${p.nota?' — '+p.nota:''}">
             <div class="mes-nombre">${m}</div>
-            <div class="mes-estado-txt">${future?'·':ico}</div>${sal}
+            <div class="mes-estado-txt">${futuroPendiente?'·':ico}</div>${sal}
             ${p.nota?`<div style="position:absolute;top:3px;right:4px;font-size:8px">📝</div>`:''}
           </div>`;
         }).join('')}
@@ -1224,7 +1225,8 @@ function renderPagosDetalle(){
         <span><span class="leg-dot" style="background:var(--warning)"></span>Abono</span>
         <span><span class="leg-dot" style="background:var(--purple)"></span>A favor</span>
         <span><span class="leg-dot" style="background:var(--bg3);border:1px solid var(--border)"></span>Pendiente</span>
-        <span><span class="leg-dot" style="background:var(--bg3);opacity:.4;border:1px solid var(--border)"></span>Antes de instalación</span>
+        <span><span class="leg-dot" style="background:var(--bg3);opacity:.55;border:1px solid var(--border)"></span>Aún no vence</span>
+        <span><span class="leg-dot" style="background:var(--bg3);opacity:.2;border:1px solid var(--border)"></span>Antes de instalación</span>
       </div>
     </div>`;
 }
