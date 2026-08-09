@@ -171,7 +171,7 @@ textarea{resize:vertical;min-height:70px;line-height:1.5}
   <div class="topbar-right">
     <div class="ip-search-wrap">
       <span class="ip-search-icon">🔍</span>
-      <input class="ip-search-input" id="ip-search-input" placeholder="Buscar cliente, IP, teléfono..." oninput="buscarIP(this.value)" onblur="setTimeout(ocultarIPResult,200)" autocomplete="off" style="width:220px">
+      <input class="ip-search-input" id="ip-search-input" placeholder="Buscar cliente, IP, teléfono..." oninput="buscarIP(this.value)" autocomplete="off" style="width:220px">
       <div class="ip-search-result" id="ip-search-result"></div>
     </div>
     <div id="sync-status" class="sync-pill load"><div class="sync-dot"></div> Conectando...</div>
@@ -306,7 +306,7 @@ textarea{resize:vertical;min-height:70px;line-height:1.5}
       </select>
       <div class="ip-search-wrap">
         <span class="ip-search-icon">🔍</span>
-        <input class="ip-search-input" id="pago-buscar-input" placeholder="Buscar cliente..." oninput="buscarClientePago(this.value)" onblur="setTimeout(ocultarPagoResult,200)" autocomplete="off" style="width:200px">
+        <input class="ip-search-input" id="pago-buscar-input" placeholder="Buscar cliente..." oninput="buscarClientePago(this.value)" autocomplete="off" style="width:200px">
         <div class="ip-search-result" id="pago-search-result"></div>
       </div>
       <select id="sel-cli-pago" style="min-width:230px" onchange="renderPagosDetalle()"></select>
@@ -639,6 +639,9 @@ firebase.initializeApp({
 const db=firebase.database();
 
 let clientes={},antenas={},receptoras={},finanzas={},cierres={};
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.ip-search-wrap')){ocultarIPResult();ocultarPagoResult();}
+});
 let editCliKey=null,editAntenaKey=null,editReceptoraKey=null,editMovKey=null,pagoMesKey=null,pagoMesIdx=null,alertasFiltro='semana';
 const AÑO=new Date().getFullYear(), MES_ACT=new Date().getMonth();
 const AÑO_ANT=AÑO-1;
