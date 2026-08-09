@@ -449,10 +449,10 @@ textarea{resize:vertical;min-height:70px;line-height:1.5}
     <div class="form-grid">
       <div class="form-group full"><label>Estado del pago</label>
         <select id="pm-estado" onchange="actualizarVistaAbono()">
-          <option value="pagado">✅ Pagado completo</option>
-          <option value="abono">💛 Abono parcial</option>
-          <option value="favor">💜 Saldo a favor</option>
-          <option value="mora">❌ En mora</option>
+          <option value="pagado">🟩 Pagado completo</option>
+          <option value="abono">🟧 Abono parcial</option>
+          <option value="favor">🟪 Saldo a favor</option>
+          <option value="mora">🟥 En mora</option>
           <option value="pendiente">⬜ Pendiente</option>
         </select>
       </div>
@@ -883,7 +883,7 @@ function renderClientes(filtro=''){
     <td>${estadoBadge(c)}</td>
     <td style="display:flex;gap:4px;flex-wrap:wrap">
       <button class="btn ghost sm" onclick="abrirModalCliente('${key}')">Editar</button>
-      <button class="btn danger sm" onclick="eliminarCliente('${key}','${c.nombre}')">✕</button>
+      <button class="btn danger sm" onclick="eliminarCliente('${key}','${c.nombre.replace(/'/g,"\\'")}')">✕</button>
     </td>
   </tr>`).join('');
 }
@@ -970,7 +970,7 @@ function renderAntenas(){
       <td style="display:flex;gap:4px;flex-wrap:wrap">
         <button class="btn ghost sm" onclick="verDetalleAntena('${key}')">Ver</button>
         <button class="btn ghost sm" onclick="abrirModalAntena('${key}')">Editar</button>
-        <button class="btn danger sm" onclick="eliminarAntena('${key}','${a.nombre}')">✕</button>
+        <button class="btn danger sm" onclick="eliminarAntena('${key}','${a.nombre.replace(/'/g,"\\'")}')">✕</button>
       </td>
     </tr>`;
   }).join('');
@@ -1072,7 +1072,7 @@ function renderReceptoras(){
       <td><span class="badge ${r.estado==='activa'?'green':r.estado==='mantenimiento'?'orange':'red'}">${r.estado}</span></td>
       <td style="display:flex;gap:4px">
         <button class="btn ghost sm" onclick="abrirModalReceptora('${key}')">Editar</button>
-        <button class="btn danger sm" onclick="eliminarReceptora('${key}','${r.nombre}')">✕</button>
+        <button class="btn danger sm" onclick="eliminarReceptora('${key}','${r.nombre.replace(/'/g,"\\'")}')">✕</button>
       </td>
     </tr>`;
   }).join('');
