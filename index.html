@@ -171,7 +171,7 @@ textarea{resize:vertical;min-height:70px;line-height:1.5}
   <div class="topbar-right">
     <div class="ip-search-wrap">
       <span class="ip-search-icon">🔍</span>
-      <input class="ip-search-input" placeholder="Buscar IP..." oninput="buscarIP(this.value)" onblur="setTimeout(ocultarIPResult,200)" autocomplete="off">
+      <input class="ip-search-input" id="ip-search-input" placeholder="Buscar cliente, IP, teléfono..." oninput="buscarIP(this.value)" onblur="setTimeout(ocultarIPResult,200)" autocomplete="off" style="width:220px">
       <div class="ip-search-result" id="ip-search-result"></div>
     </div>
     <div id="sync-status" class="sync-pill load"><div class="sync-dot"></div> Conectando...</div>
@@ -304,6 +304,11 @@ textarea{resize:vertical;min-height:70px;line-height:1.5}
         <option value="ant">2025</option>
         <option value="act" selected>2026</option>
       </select>
+      <div class="ip-search-wrap">
+        <span class="ip-search-icon">🔍</span>
+        <input class="ip-search-input" id="pago-buscar-input" placeholder="Buscar cliente..." oninput="buscarClientePago(this.value)" onblur="setTimeout(ocultarPagoResult,200)" autocomplete="off" style="width:200px">
+        <div class="ip-search-result" id="pago-search-result"></div>
+      </div>
       <select id="sel-cli-pago" style="min-width:230px" onchange="renderPagosDetalle()"></select>
     </div>
   </div>
@@ -667,8 +672,8 @@ function getPago(c,mi,yr=AÑO){const k=`${yr}-${mi}`;return(c.pagos&&c.pagos[k])
 
 function mesInicioCliente(c, yr){
   // devuelve el mes desde el que se cuenta para ese año
-  // si no tiene fecha de instalación, desde enero de ese año
-  if(!c.fechainstal) return 0;
+  // si no tiene fecha de instalación, no se calcula mora todavía (evita meses fantasma)
+  if(!c.fechainstal) return 12;
   const fi=new Date(c.fechainstal);
   const fiYear=fi.getFullYear();
   if(yr < fiYear) return 12; // año anterior a instalación: no contar ningún mes
@@ -677,7 +682,7 @@ function mesInicioCliente(c, yr){
 }
 
 function morasDeCliente(c){
-  if(c.estado==='gratis') return 0;
+  if(c.estado==='gratis'||c.estado==='inactivo') return 0;
   let m=0;
   const desdeAnt=mesInicioCliente(c,AÑO_ANT);
   for(let i=desdeAnt;i<=11;i++){const e=getPago(c,i,AÑO_ANT).estado;if(e==='pendiente'||e==='mora')m++;}
@@ -687,7 +692,7 @@ function morasDeCliente(c){
 }
 
 function deudaCliente(c){
-  if(c.estado==='gratis') return 0;
+  if(c.estado==='gratis'||c.estado==='inactivo') return 0;
   let d=0;
   const calcYear=(yr,desde,hasta)=>{
     for(let i=desde;i<=hasta;i++){
@@ -703,14 +708,14 @@ function deudaCliente(c){
 }
 
 function diasVencido(c){
-  if(!c.diapago||c.estado==='gratis')return null;
+  if(!c.diapago||c.estado==='gratis'||c.estado==='inactivo')return null;
   const v=new Date(AÑO,MES_ACT,parseInt(c.diapago));v.setHours(0,0,0,0);
   if(HOY<=v)return 0;
   return Math.floor((HOY-v)/(864e5));
 }
 
 function corregirFechasInicio(){
-  const candidatos=Object.entries(clientes).filter(([k,c])=>!c.fechainstal&&c.estado!=='gratis'&&c.pagos);
+  const candidatos=Object.entries(clientes).filter(([k,c])=>!c.fechainstal&&c.estado!=='gratis'&&c.estado!=='inactivo'&&c.pagos);
   if(!candidatos.length){alert('No hay clientes sin fecha de instalación para corregir.');return;}
   if(!confirm(`Se va a calcular la fecha de inicio de ${candidatos.length} cliente(s), usando el mes más antiguo que tenga un pago marcado (verde/rojo/abono). Esto corrige los meses en mora que no corresponden porque venían contando desde enero. ¿Continuar?`))return;
   let ajustados=0,sinDatos=0;
@@ -747,6 +752,7 @@ function diasBadge(dias){
 
 function estadoBadge(c){
   if(c.estado==='gratis')return'<span class="badge purple">Gratis</span>';
+  if(c.estado==='inactivo')return'<span class="badge gray">Inactivo</span>';
   const m=morasDeCliente(c);
   return m>0?`<span class="badge red">${m} mora</span>`:'<span class="badge green">Al día</span>';
 }
@@ -755,7 +761,7 @@ function getIPsUsadas(){
   const map={};
   Object.values(antenas).forEach(a=>{if(a.ip)map[a.ip.trim()]={tipo:'antena',nombre:a.nombre};});
   Object.values(receptoras).forEach(r=>{if(r.ip)map[r.ip.trim()]={tipo:'antena',nombre:r.nombre+' (receptora)'};});
-  Object.values(clientes).forEach(c=>{if(c.ip)map[c.ip.trim()]={tipo:c.estado==='gratis'?'gratis':'cliente',nombre:c.nombre,plan:c.plan||'',antena:c.antena||''};});
+  Object.values(clientes).forEach(c=>{if(c.ip&&c.estado!=='inactivo')map[c.ip.trim()]={tipo:c.estado==='gratis'?'gratis':'cliente',nombre:c.nombre,plan:c.plan||'',antena:c.antena||''};});
   return map;
 }
 
@@ -781,7 +787,7 @@ function showPanel(id,btn){
 }
 
 function actualizarAlertaDot(){
-  const n=Object.values(clientes).filter(c=>c.estado!=='gratis'&&c.diapago&&diasParaVencer(c)!==null&&diasParaVencer(c)>=0&&diasParaVencer(c)<=7).length;
+  const n=Object.values(clientes).filter(c=>c.estado!=='gratis'&&c.estado!=='inactivo'&&c.diapago&&diasParaVencer(c)!==null&&diasParaVencer(c)>=0&&diasParaVencer(c)<=7).length;
   const nav=document.getElementById('nav-alertas');
   nav.innerHTML=n>0?`Alertas <span class="alert-dot"></span>`:'Alertas';
 }
@@ -789,7 +795,7 @@ function actualizarAlertaDot(){
 /* DASHBOARD */
 function renderDash(){
   const arr=Object.values(clientes);
-  const pagantes=arr.filter(c=>c.estado!=='gratis');
+  const pagantes=arr.filter(c=>c.estado!=='gratis'&&c.estado!=='inactivo');
   const mora=pagantes.filter(c=>morasDeCliente(c)>0);
   const gratis=arr.filter(c=>c.estado==='gratis').length;
   document.getElementById('s-total').textContent=arr.length;
@@ -798,7 +804,7 @@ function renderDash(){
   document.getElementById('s-mora').textContent=mora.length;
   const ing=Object.values(finanzas).filter(f=>f.tipo==='ingreso').reduce((a,b)=>a+Number(b.monto),0);
   document.getElementById('s-ing').textContent=fmt(ing);
-  const semana=Object.values(clientes).filter(c=>c.estado!=='gratis'&&c.diapago&&diasParaVencer(c)!==null&&diasParaVencer(c)>=0&&diasParaVencer(c)<=7);
+  const semana=Object.values(clientes).filter(c=>c.estado!=='gratis'&&c.estado!=='inactivo'&&c.diapago&&diasParaVencer(c)!==null&&diasParaVencer(c)>=0&&diasParaVencer(c)<=7);
   const daw=document.getElementById('dash-alertas-wrap');
   daw.innerHTML=semana.length?`<div class="alert warning" style="cursor:pointer" onclick="showPanel('alertas',document.querySelectorAll('.nav-btn')[1])">⚠️ <strong>${semana.length} cliente(s)</strong> vencen esta semana: ${semana.map(c=>c.nombre.split(' ')[0]).join(', ')}. <u>Ver alertas →</u></div>`:'';
   const sorted=[...mora].sort((a,b)=>(diasVencido(b)||0)-(diasVencido(a)||0));
@@ -816,7 +822,7 @@ function renderDash(){
 
 /* ALERTAS */
 function renderAlertas(){
-  const arr=Object.values(clientes).filter(c=>c.estado!=='gratis'&&c.diapago);
+  const arr=Object.values(clientes).filter(c=>c.estado!=='gratis'&&c.estado!=='inactivo'&&c.diapago);
   let lista=[];
   if(alertasFiltro==='hoy') lista=arr.filter(c=>diasParaVencer(c)===0);
   else if(alertasFiltro==='semana') lista=arr.filter(c=>{const d=diasParaVencer(c);return d!==null&&d>=0&&d<=7;});
@@ -1132,34 +1138,98 @@ function renderIPMap(){
 }
 
 /* BÚSQUEDA RÁPIDA IP */
+function buscarClientesPorTexto(v){
+  const q=normaliza(v);
+  return Object.entries(clientes).filter(([k,c])=>
+    normaliza(c.nombre).includes(q)||
+    (c.tel&&c.tel.includes(v))||
+    (c.ip&&c.ip.toLowerCase().includes(v.toLowerCase()))||
+    (c.documento&&c.documento.includes(v))||
+    (c.direccion&&normaliza(c.direccion).includes(q))
+  ).slice(0,8);
+}
+
 function buscarIP(val){
   const res=document.getElementById('ip-search-result');
   const v=val.trim();
-  if(v.length<3){res.classList.remove('visible');return;}
+  if(v.length<2){res.classList.remove('visible');return;}
+
+  const matchesCli=buscarClientesPorTexto(v);
+  let htmlCli='';
+  if(matchesCli.length){
+    htmlCli='<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Clientes</div>'+matchesCli.map(([key,c])=>{
+      const m=morasDeCliente(c);
+      const estTxt=c.estado==='gratis'?'<span style="color:var(--purple)">🆓 Gratis</span>':c.estado==='inactivo'?'<span style="color:var(--muted)">🔌 Inactivo</span>':m>0?`<span style="color:var(--danger)">${m} mes(es) en mora</span>`:'<span style="color:var(--success)">✓ Al día</span>';
+      return`<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;cursor:pointer" onclick="irAClientePago('${key}')">
+        <div style="font-weight:700">${c.nombre}</div>
+        <div style="color:var(--muted);font-size:11px">${c.ip||'sin IP'}${c.tel?' · '+c.tel:''} — ${estTxt}</div>
+      </div>`;
+    }).join('')+'<div style="font-size:10px;color:var(--muted);margin:6px 0">Clic para ver cuenta y registrar pago</div>';
+  }
+
   const ipUsadas=getIPsUsadas();
-  const matches=[];
-  IP_RANGOS.forEach(r=>{
-    for(let i=r.inicio;i<=r.fin;i++){
-      const ip=`${r.prefijo}.${i}`;
-      if(ip.includes(v)){matches.push({ip,info:ipUsadas[ip]});if(matches.length>=8)return;}
-    }
-  });
-  if(!matches.length){
-    res.innerHTML='<div style="color:var(--muted);font-size:12px;padding:4px 0">Sin resultados en tus rangos</div>';
-  } else {
-    res.innerHTML=matches.map(m=>{
+  const matchesIP=[];
+  if(/[\d.]/.test(v)){
+    IP_RANGOS.forEach(r=>{
+      for(let i=r.inicio;i<=r.fin;i++){
+        const ip=`${r.prefijo}.${i}`;
+        const info=ipUsadas[ip];
+        if(info&&(info.tipo==='cliente'||info.tipo==='gratis'))continue; // ya se muestra arriba en Clientes
+        if(ip.includes(v)){matchesIP.push({ip,info});if(matchesIP.length>=6)return;}
+      }
+    });
+  }
+  let htmlIP='';
+  if(matchesIP.length){
+    htmlIP='<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin:8px 0 4px">IPs</div>'+matchesIP.map(m=>{
       if(!m.info)return`<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:12px"><span class="ip">${m.ip}</span> <span style="color:var(--success);font-size:11px;margin-left:6px">Libre</span></div>`;
-      const color=m.info.tipo==='antena'?'var(--success)':m.info.tipo==='gratis'?'var(--purple)':'var(--primary)';
-      const icono=m.info.tipo==='antena'?'📡':m.info.tipo==='gratis'?'🆓':'👤';
       return`<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:12px;cursor:pointer" onclick="irAIPMap('${m.ip}')">
         <span class="ip">${m.ip}</span>
-        <span style="color:${color};font-size:11px;margin-left:6px">${icono} ${m.info.nombre}</span>
+        <span style="color:var(--success);font-size:11px;margin-left:6px">📡 ${m.info.nombre}</span>
       </div>`;
-    }).join('')+'<div style="font-size:10px;color:var(--muted);margin-top:6px">Clic para ver en mapa</div>';
+    }).join('');
   }
+
+  res.innerHTML=(htmlCli||htmlIP)?(htmlCli+htmlIP):'<div style="color:var(--muted);font-size:12px;padding:4px 0">Sin resultados</div>';
   res.classList.add('visible');
 }
 function ocultarIPResult(){document.getElementById('ip-search-result').classList.remove('visible');}
+
+function irAClientePago(key){
+  ocultarIPResult();
+  const input=document.getElementById('ip-search-input');if(input)input.value='';
+  const btn=document.querySelector(`.nav-btn[onclick*="'pagos'"]`);
+  showPanel('pagos',btn);
+  document.getElementById('sel-cli-pago').value=key;
+  renderPagosDetalle();
+}
+
+function buscarClientePago(val){
+  const res=document.getElementById('pago-search-result');
+  const v=val.trim();
+  if(v.length<2){res.classList.remove('visible');return;}
+  const matches=buscarClientesPorTexto(v);
+  if(!matches.length){
+    res.innerHTML='<div style="color:var(--muted);font-size:12px;padding:4px 0">Sin resultados</div>';
+  }else{
+    res.innerHTML=matches.map(([key,c])=>{
+      const m=morasDeCliente(c);
+      const estTxt=c.estado==='gratis'?'<span style="color:var(--purple)">🆓 Gratis</span>':c.estado==='inactivo'?'<span style="color:var(--muted)">🔌 Inactivo</span>':m>0?`<span style="color:var(--danger)">${m} mes(es) en mora</span>`:'<span style="color:var(--success)">✓ Al día</span>';
+      return`<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;cursor:pointer" onclick="seleccionarClientePago('${key}')">
+        <div style="font-weight:700">${c.nombre}</div>
+        <div style="color:var(--muted);font-size:11px">${c.ip||'sin IP'}${c.tel?' · '+c.tel:''} — ${estTxt}</div>
+      </div>`;
+    }).join('');
+  }
+  res.classList.add('visible');
+}
+function ocultarPagoResult(){document.getElementById('pago-search-result').classList.remove('visible');}
+function seleccionarClientePago(key){
+  document.getElementById('pago-buscar-input').value='';
+  ocultarPagoResult();
+  document.getElementById('sel-cli-pago').value=key;
+  renderPagosDetalle();
+}
 
 /* PAGOS */
 let pagoAño=AÑO; // año actualmente viendo en pagos
@@ -1197,11 +1267,12 @@ function renderPagosDetalle(){
       </div>
       ${esAñoAnt?`<div class="alert warning" style="font-size:12px">📅 Viendo mensualidades de <strong>2025</strong> — meses pendientes de año anterior</div>`:''}
       ${c.estado==='gratis'?'<div class="alert success" style="font-size:12px">Servicio gratuito — no se calculan moras.</div>':''}
+      ${c.estado==='inactivo'?'<div class="alert warning" style="font-size:12px">🔌 Cliente inactivo — no se calculan moras y su IP quedó libre para reasignar.</div>':''}
+      ${!c.fechainstal&&c.estado!=='gratis'&&c.estado!=='inactivo'?'<div class="alert warning" style="font-size:12px">⚠️ Este cliente no tiene fecha de instalación — no se está calculando su mora hasta que se la pongas (edítalo y complétala).</div>':''}
       <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Haz clic en un mes para registrar pago, abono o nota</div>
       <div class="meses-grid">
         ${MESES.map((m,mi)=>{
-          const mesInicio=mesInicioCliente(c,pagoAño);
-          const antesDeInstal = mi < mesInicio;
+          const antesDeInstal = !!c.fechainstal && mi < mesInicioCliente(c,pagoAño);
           const p=getPago(c,mi,pagoAño);
           const est=p.estado||'pendiente';
           const future=!esAñoAnt&&mi>MES_ACT;
