@@ -408,6 +408,19 @@ textarea{resize:vertical;min-height:70px;line-height:1.5}
         </select>
       </div>
     </div>
+    <div class="form-group full" id="f-instalacion-wrap" style="background:var(--bg2);border-radius:8px;padding:10px 12px;border:1px solid var(--border);margin-top:12px">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;text-transform:none;font-size:13px;color:var(--text);font-weight:600">
+        <input type="checkbox" id="f-cobrar-instalacion" style="width:16px;height:16px" onchange="document.getElementById('f-instalacion-detalle').style.display=this.checked?'grid':'none'">
+        Cobrar instalación (incluye el primer mes de servicio)
+      </label>
+      <div id="f-instalacion-detalle" style="display:none;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
+        <div class="form-group"><label>Valor instalación ($)</label><input id="f-valor-instalacion" type="number" value="200000"></div>
+        <div class="form-group"><label>¿Quién recibe?</label>
+          <select id="f-receptor-instalacion"><option value="">— Sin asignar —</option><option value="Alexander">Alexander</option><option value="Carlos">Carlos</option><option value="Otro">Otro</option></select>
+        </div>
+      </div>
+      <div class="form-hint" style="margin-top:6px">Registra el ingreso en Finanzas y marca el mes de instalación como pagado automáticamente.</div>
+    </div>
     <div class="form-actions">
       <button class="btn ghost" onclick="cerrarModal('modal-cliente')">Cancelar</button>
       <button class="btn" onclick="guardarCliente()">Guardar cliente</button>
@@ -684,13 +697,26 @@ function mesInicioCliente(c, yr){
   return fi.getMonth();      // mismo año: desde el mes de instalación
 }
 
+function yaVencioMesActual(c){
+  // ¿ya pasó el día de pago de ESTE mes? si no tiene día definido, se mantiene el comportamiento anterior (cuenta desde el día 1)
+  if(!c.diapago) return true;
+  const v=diasVencido(c);
+  return v!==null && v>0;
+}
+
 function morasDeCliente(c){
   if(c.estado==='gratis'||c.estado==='inactivo') return 0;
   let m=0;
   const desdeAnt=mesInicioCliente(c,AÑO_ANT);
   for(let i=desdeAnt;i<=11;i++){const e=getPago(c,i,AÑO_ANT).estado;if(e==='pendiente'||e==='mora')m++;}
   const desdeAct=mesInicioCliente(c,AÑO);
-  for(let i=desdeAct;i<=MES_ACT;i++){const e=getPago(c,i,AÑO).estado;if(e==='pendiente'||e==='mora')m++;}
+  const limite=Math.min(MES_ACT-1,11);
+  for(let i=desdeAct;i<=limite;i++){const e=getPago(c,i,AÑO).estado;if(e==='pendiente'||e==='mora')m++;}
+  if(desdeAct<=MES_ACT){
+    const e=getPago(c,MES_ACT,AÑO).estado;
+    if(e==='mora')m++;
+    else if(e==='pendiente'&&yaVencioMesActual(c))m++;
+  }
   return m;
 }
 
@@ -700,7 +726,11 @@ function deudaCliente(c){
   const calcYear=(yr,desde,hasta)=>{
     for(let i=desde;i<=hasta;i++){
       const p=getPago(c,i,yr);
-      if(p.estado==='mora'||p.estado==='pendiente') d+=Number(c.valor||0);
+      if(p.estado==='mora') d+=Number(c.valor||0);
+      else if(p.estado==='pendiente'){
+        const esMesActual=(yr===AÑO&&i===MES_ACT);
+        if(!esMesActual||yaVencioMesActual(c)) d+=Number(c.valor||0);
+      }
       else if(p.estado==='abono') d+=Number(c.valor||0)-Number(p.monto||0);
       else if(p.estado==='favor') d-=Number(p.monto||0)-Number(c.valor||0);
     }
@@ -929,6 +959,11 @@ function abrirModalCliente(key=null){
   document.getElementById('f-ip-hint').textContent='';
   const sel=document.getElementById('f-antena');
   sel.innerHTML=Object.values(antenas).map(a=>`<option value="${a.nombre}" ${c.antena===a.nombre?'selected':''}>${a.nombre}</option>`).join('')||'<option value="">Sin antenas registradas</option>';
+  document.getElementById('f-instalacion-wrap').style.display=key?'none':'block';
+  document.getElementById('f-cobrar-instalacion').checked=false;
+  document.getElementById('f-instalacion-detalle').style.display='none';
+  document.getElementById('f-valor-instalacion').value=200000;
+  document.getElementById('f-receptor-instalacion').value='';
   document.getElementById('modal-cliente').style.display='flex';
 }
 
@@ -941,9 +976,25 @@ function guardarCliente(){
   if(ipUsadas[ip]&&ipUsadas[ip].nombre!==editNombre){
     if(!confirm(`La IP ${ip} ya está asignada a "${ipUsadas[ip].nombre}". ¿Continuar?`))return;
   }
+  const esNuevo=!editCliKey;
   const key=editCliKey||db.ref('clientes').push().key;
   const existing=editCliKey?(clientes[editCliKey]||{}):{};
-  db.ref('clientes/'+key).set({nombre,ip,tel:document.getElementById('f-tel').value.trim(),documento:document.getElementById('f-documento').value.trim(),direccion:document.getElementById('f-direccion').value.trim(),antena:document.getElementById('f-antena').value,plan:document.getElementById('f-plan').value.trim(),valor:Number(document.getElementById('f-valor').value)||0,diapago:Number(document.getElementById('f-diapago').value)||'',fechainstal:document.getElementById('f-fechainstal').value||'',estado:document.getElementById('f-estado').value,pagos:existing.pagos||buildPagos()});
+  const cobrarInstalacion=esNuevo&&document.getElementById('f-cobrar-instalacion').checked;
+  let fechainstal=document.getElementById('f-fechainstal').value||'';
+  if(cobrarInstalacion&&!fechainstal) fechainstal=new Date().toISOString().split('T')[0];
+  const pagosBase=existing.pagos||buildPagos();
+  if(cobrarInstalacion){
+    const fi=new Date(fechainstal);
+    const claveMes=`${fi.getFullYear()}-${fi.getMonth()}`;
+    pagosBase[claveMes]={estado:'pagado',monto:0,nota:'Incluido en la instalación',fecha:fechainstal,historial:[{fecha:fechainstal,desc:'Primer mes incluido en instalación',nota:''}]};
+  }
+  db.ref('clientes/'+key).set({nombre,ip,tel:document.getElementById('f-tel').value.trim(),documento:document.getElementById('f-documento').value.trim(),direccion:document.getElementById('f-direccion').value.trim(),antena:document.getElementById('f-antena').value,plan:document.getElementById('f-plan').value.trim(),valor:Number(document.getElementById('f-valor').value)||0,diapago:Number(document.getElementById('f-diapago').value)||'',fechainstal,estado:document.getElementById('f-estado').value,pagos:pagosBase});
+  if(cobrarInstalacion){
+    const valorInst=Number(document.getElementById('f-valor-instalacion').value)||0;
+    if(valorInst>0){
+      db.ref('finanzas').push({fecha:fechainstal,tipo:'ingreso',categoria:'INSTALACIONES',receptor:document.getElementById('f-receptor-instalacion').value,desc:`Instalación — ${nombre} (incluye primer mes)`,monto:valorInst});
+    }
+  }
   cerrarModal('modal-cliente');
 }
 
